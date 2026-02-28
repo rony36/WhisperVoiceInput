@@ -158,7 +158,9 @@ function renderHistory(history) {
             const txt = e.target.getAttribute('data-text');
             navigator.clipboard.writeText(txt).then(() => {
                 // Background script will check enableSounds for us
-                chrome.runtime.sendMessage({ type: "PLAY_SOUND_GLOBAL", soundType: "copy" }).catch(() => {});
+                chrome.runtime.sendMessage({ type: "PLAY_SOUND_GLOBAL", soundType: "copy" }, () => {
+                    if (chrome.runtime.lastError) {} // Ignore expected errors
+                });
                 e.target.classList.add('copied');
                 setTimeout(() => e.target.classList.remove('copied'), 2000);
             });
@@ -258,7 +260,9 @@ function startRecording() {
 function stopRecording() {
     updateButtonState('processing');
     statusText.textContent = "Processing...";
-    chrome.runtime.sendMessage({ type: "STOP_RECORDING" });
+    chrome.runtime.sendMessage({ type: "STOP_RECORDING" }, () => {
+        if (chrome.runtime.lastError) console.log("Stop recording message error:", chrome.runtime.lastError);
+    });
 }
 
 chrome.runtime.onMessage.addListener((message) => {
@@ -318,7 +322,9 @@ toggleDebugBtn.onclick = () => {
 copyLogsBtn.onclick = () => {
     const logText = debugLog.innerText;
     navigator.clipboard.writeText(logText).then(() => {
-        chrome.runtime.sendMessage({ type: "PLAY_SOUND_GLOBAL", soundType: "copy" }).catch(() => {});
+        chrome.runtime.sendMessage({ type: "PLAY_SOUND_GLOBAL", soundType: "copy" }, () => {
+            if (chrome.runtime.lastError) {}
+        });
         copyLogsBtn.classList.add('copied');
         setTimeout(() => {
             copyLogsBtn.classList.remove('copied');

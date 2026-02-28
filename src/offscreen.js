@@ -346,10 +346,10 @@ async function startRecording(settings, sendResponse) {
         
         recorder.start();
         logDebug("Recording started...");
-        sendResponse({ success: true });
+        if (sendResponse) sendResponse({ success: true });
     } catch (err) {
         logDebug(`Recording failed: ${err.message}`, "#f44747");
-        sendResponse({ success: false, error: err.message });
+        if (sendResponse) sendResponse({ success: false, error: err.message });
     }
 }
 
@@ -383,9 +383,12 @@ async function copyToClipboard(text) {
 
 async function stopRecording(settings, sendResponse) {
     if (!recorder || recorder.state === "inactive") {
-        sendResponse({ success: false, error: "No active recorder" });
+        if (sendResponse) sendResponse({ success: false, error: "No active recorder" });
         return;
     }
+
+    // Acknowledge immediate stop command
+    if (sendResponse) sendResponse({ success: true });
 
     recorder.onstop = async () => {
         logDebug("Recording stopped, processing...");
@@ -400,6 +403,7 @@ async function stopRecording(settings, sendResponse) {
             const audioCtx = new AudioContext({ sampleRate: 16000 });
             const decoded = await audioCtx.decodeAudioData(arrayBuffer);
             let audioData = decoded.getChannelData(0);
+            await audioCtx.close(); // Clean up decoding context
             const decodeEnd = performance.now();
             logDebug(`[Perf] Audio Decode: ${Math.round(decodeEnd - decodeStart)}ms`, "#d19a66");
 
@@ -418,7 +422,6 @@ async function stopRecording(settings, sendResponse) {
                     text: "",
                     status: "No speech detected" 
                 }).catch(() => {});
-                sendResponse({ success: true, text: "" });
                 return;
             }
 
@@ -467,13 +470,19 @@ async function stopRecording(settings, sendResponse) {
                 text: transcribedText 
             }).catch(() => {});
 
-            sendResponse({ success: true, text: transcribedText });
         } catch (err) {
             logDebug(`Error: ${err.message}`, "#f44747");
-            sendResponse({ success: false, error: err.message });
         } finally {
-            if (stream) stream.getTracks().forEach(t => t.stop());
-            if (audioContext) audioContext.close();
+            if (stream) {
+                stream.getTracks().forEach(t => t.stop());
+                stream = null;
+            }
+            if (audioContext) {
+                if (audioContext.state !== 'closed') {
+                    audioContext.close().catch(e => console.log("AudioContext close error:", e));
+                }
+                audioContext = null;
+            }
             recorder = null;
         }
     };

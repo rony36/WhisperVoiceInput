@@ -131,6 +131,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       logHistory = [];
       handleStartRecording(sendResponse);
       broadcastStatus();
+    }).catch(err => {
+      if (sendResponse) sendResponse({ success: false, error: err.message });
     });
     return true;
   }
@@ -140,6 +142,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       isProcessing = true;
       handleStopRecording(sendResponse);
       broadcastStatus();
+    }).catch(err => {
+      if (sendResponse) sendResponse({ success: false, error: err.message });
     });
     return true;
   }
