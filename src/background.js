@@ -20,12 +20,34 @@ let transcriptionHistory = []; // Persist only the latest 3 transcription result
 let logHistory = [];
 const MAX_LOGS = 100;
 
-function broadcastStatus() {
+function updateBadge(isRecording) {
+  if (isRecording) {
+    chrome.action.setBadgeText({ text: "REC" });
+    chrome.action.setBadgeBackgroundColor({ color: "#FF3B30" }); // Vibrant Apple Red
+    chrome.action.setBadgeTextColor({ color: "#FFFFFF" });
+  } else {
+    chrome.action.setBadgeText({ text: "" });
+  }
+}
+
+async function getRecordingState() {
+  const data = await chrome.storage.local.get({ isRecording: false });
+  return data.isRecording;
+}
+
+async function setRecordingState(state) {
+  isRecording = state; 
+  await chrome.storage.local.set({ isRecording: state });
+}
+
+async function broadcastStatus() {
+  const recording = await getRecordingState();
   chrome.runtime.sendMessage({
     type: "RECORDING_STATE_UPDATED",
-    isRecording,
+    isRecording: recording,
     isProcessing
   }).catch(() => {});
+  // updateBadge(recording);
 }
 
 chrome.runtime.onConnect.addListener((port) => {
@@ -36,14 +58,15 @@ chrome.runtime.onConnect.addListener((port) => {
   }
 });
 
-chrome.commands.onCommand.addListener((command) => {
+chrome.commands.onCommand.addListener(async (command) => {
   if (command === "toggle-recording") {
-    if (isRecording) {
-      isRecording = false;
+    const recording = await getRecordingState();
+    if (recording) {
+      await setRecordingState(false);
       isProcessing = true;
       handleStopRecording();
     } else {
-      isRecording = true;
+      await setRecordingState(true);
       isProcessing = false;
       logHistory = [];
       handleStartRecording();
@@ -103,19 +126,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "START_RECORDING") {
-    isRecording = true;
-    isProcessing = false;
-    logHistory = [];
-    handleStartRecording(sendResponse);
-    broadcastStatus();
+    setRecordingState(true).then(() => {
+      isProcessing = false;
+      logHistory = [];
+      handleStartRecording(sendResponse);
+      broadcastStatus();
+    });
     return true;
   }
 
   if (message.type === "STOP_RECORDING") {
-    isRecording = false;
-    isProcessing = true;
-    handleStopRecording(sendResponse);
-    broadcastStatus();
+    setRecordingState(false).then(() => {
+      isProcessing = true;
+      handleStopRecording(sendResponse);
+      broadcastStatus();
+    });
     return true;
   }
 
