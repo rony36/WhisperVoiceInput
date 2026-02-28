@@ -1,0 +1,49 @@
+{
+  "manifest_version": 3,
+  "name": "Whisper Voice Input",
+  "version": "1.0",
+  "description": "Local AI-powered voice input using Whisper.",
+  "permissions": [
+    "storage",
+    "offscreen",
+    "clipboardWrite"
+  ],
+  "background": {
+    "service_worker": "src/background.js",
+    "type": "module"
+  },
+  "icons": {
+    "16": "assets/icons/icon16.png",
+    "32": "assets/icons/icon32.png",
+    "48": "assets/icons/icon48.png",
+    "128": "assets/icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_title": "Whisper Voice Input"
+  },
+  "options_page": "src/options/options.html",
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "assets/*",
+        "src/offscreen.html"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src https://huggingface.co https://*.huggingface.co https://cdn.jsdelivr.net https://*.huggingface.cloud https://hf.co https://*.hf.co https://*.xethub.hf.co https://s3.amazonaws.com https://*.s3.amazonaws.com"
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Alt+V",
+        "mac": "Command+Shift+V"
+      },
+      "description": "Open popup and toggle recording"
+    }
+  }
+}

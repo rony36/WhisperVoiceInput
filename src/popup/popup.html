@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Whisper Voice Input</title>
+    <style>
+        :root {
+            --primary-color: #0071e3;
+            --success-color: #28cd41;
+            --danger-color: #ff3b30;
+            --bg-color: #ffffff;
+            --text-main: #1d1d1f;
+            --text-secondary: #86868b;
+            --border-color: #f5f5f7;
+            --shadow-soft: 0 8px 30px rgba(0,0,0,0.04);
+        }
+
+        body {
+            width: 350px;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg-color);
+            margin: 0;
+            overflow-x: hidden;
+            color: var(--text-main);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+
+        h1 { 
+            font-size: 19px; 
+            margin: 0; 
+            color: var(--text-main); 
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        #settingsBtn { 
+            background: #f5f5f7; 
+            border: none; 
+            cursor: pointer; 
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        #settingsBtn:hover { 
+            background: #e8e8ed;
+            transform: rotate(30deg); 
+        }
+
+        #settingsBtn svg {
+            width: 18px;
+            height: 18px;
+            stroke: #515154;
+            overflow: visible;
+        }
+        
+        .record-btn-container {
+            padding: 10px 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .record-btn {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, #ff5f57, #ff3b30);
+            color: white;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(255, 59, 48, 0.2), 0 12px 28px rgba(255, 59, 48, 0.3);
+            font-size: 14px;
+            letter-spacing: 0.5px;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .record-btn::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(rgba(255,255,255,0.1), transparent);
+            pointer-events: none;
+        }
+
+        .record-btn:hover {
+            transform: scale(1.04) translateY(-2px);
+            box-shadow: 0 6px 15px rgba(255, 59, 48, 0.25), 0 15px 35px rgba(255, 59, 48, 0.4);
+        }
+
+        .record-btn:active {
+            transform: scale(0.96);
+        }
+
+        .record-btn.recording { 
+            background: linear-gradient(135deg, #34e150, #28cd41); 
+            box-shadow: 0 4px 12px rgba(40, 205, 65, 0.2), 0 12px 28px rgba(40, 205, 65, 0.3); 
+            animation: pulse 2s infinite; 
+        }
+
+        .record-btn.working { 
+            background: linear-gradient(135deg, #0082ff, #0071e3); 
+            box-shadow: 0 4px 12px rgba(0, 113, 227, 0.2), 0 12px 28px rgba(0, 113, 227, 0.3); 
+            animation: breathe 1.5s infinite ease-in-out; 
+            cursor: not-allowed; 
+        }
+        
+        @keyframes pulse { 
+            0% { transform: scale(1); } 
+            50% { transform: scale(1.06); } 
+            100% { transform: scale(1); } 
+        }
+
+        @keyframes breathe { 
+            0% { opacity: 0.9; transform: scale(1); } 
+            50% { opacity: 1; transform: scale(0.97); } 
+            100% { opacity: 0.9; transform: scale(1); } 
+        }
+
+        .status { 
+            font-size: 13px; 
+            color: var(--text-secondary); 
+            min-height: 18px; 
+            margin-bottom: 6px; 
+            text-align: center;
+            font-weight: 500;
+        }
+        
+        .waveform-container {
+            height: 44px;
+            background: #fbfbfd;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 8px;
+            box-sizing: border-box;
+            transition: all 0.3s ease;
+        }
+
+        #output-list {
+            text-align: left;
+            margin: 4px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .history-item {
+            padding: 14px 40px 14px 16px;
+            font-size: 14px;
+            line-height: 1.5;
+            color: var(--text-main);
+            position: relative;
+            border-radius: 12px;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            word-break: break-word;
+            border: 1px solid transparent;
+            background: #f5f5f7;
+        }
+
+        .history-item:first-child {
+            background: #ffffff;
+            font-weight: 500;
+            border-color: #e8e8ed;
+            box-shadow: var(--shadow-soft);
+        }
+
+        .history-item:first-child::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 14px;
+            bottom: 14px;
+            width: var(--pseudo-width, 4px);
+            background: var(--primary-color);
+            border-radius: 0 2px 2px 0;
+            transition: width 0.3s;
+        }
+
+        .history-item:not(:first-child) {
+            color: var(--text-secondary);
+            font-size: 13px;
+            opacity: 0.8;
+        }
+
+        .mini-copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border-radius: 8px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+        }
+
+        .history-item:hover .mini-copy-btn {
+            opacity: 0.6;
+        }
+
+        .mini-copy-btn:hover { 
+            opacity: 1 !important;
+            background-color: rgba(0, 0, 0, 0.05); 
+        }
+
+        /* Modern SVG Copy Icon */
+        .mini-copy-btn::after {
+            content: "";
+            display: block;
+            width: 14px;
+            height: 14px;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%231d1d1f" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>');
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: contain;
+            transition: all 0.2s;
+        }
+
+        /* Checkmark Icon for Success */
+        .mini-copy-btn.copied::after {
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%2328cd41" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>');
+            transform: scale(1.1);
+        }
+
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 14px;
+            border-top: 1px solid var(--border-color);
+            margin-top: 8px;
+            min-height: 32px;
+        }
+
+        .lang-group { display: flex; align-items: center; gap: 8px; }
+        .lang-group label { font-size: 11px; color: var(--text-secondary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;}
+        
+        #langSelect { 
+            font-size: 12px; 
+            padding: 4px 8px; 
+            border-radius: 8px; 
+            border: 1px solid #d2d2d7; 
+            color: var(--text-main); 
+            background: #ffffff; 
+            cursor: pointer;
+            outline: none;
+            transition: all 0.2s;
+            height: 28px;
+            display: flex;
+            align-items: center;
+        }
+
+        #langSelect:hover {
+            border-color: #86868b;
+        }
+
+        .debug-group { display: flex; align-items: center; }
+        #toggleDebug { 
+            font-size: 11px; 
+            padding: 5px 10px; 
+            border: 1px solid #d2d2d7; 
+            background: none; 
+            color: var(--text-secondary); 
+            border-radius: 8px; 
+            cursor: pointer; 
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        #toggleDebug:hover { 
+            background: #f5f5f7; 
+            color: var(--text-main);
+            border-color: #86868b;
+        }
+        
+        #debug-log-wrapper { display: none; width: 100%; margin-top: 12px; }
+        #debug-log {
+            padding: 12px;
+            background: #1d1d1f;
+            color: #d4d4d4;
+            border-radius: 10px;
+            height: 120px;
+            overflow-y: auto;
+            font-family: "SF Mono", Menlo, Monaco, Consolas, monospace;
+            font-size: 11px;
+            text-align: left;
+            line-height: 1.4;
+        }
+        
+        #modelInfo { 
+            font-size: 10px; 
+            color: var(--text-secondary); 
+            margin-top: 10px; 
+            text-align: center;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Whisper Voice Input</h1>
+            <button id="settingsBtn" title="Settings">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+            </button>
+        </header>
+
+        <div class="record-btn-container">
+            <button id="recordBtn" class="record-btn">START</button>
+        </div>
+        
+        <div id="status" class="status">Click to start</div>
+        
+        <div class="waveform-container">
+            <canvas id="waveformCanvas" width="310" height="44"></canvas>
+        </div>
+        
+        <div id="output-list"></div>
+
+        <div class="footer">
+            <div class="lang-group">
+                <label>Language</label>
+                <select id="langSelect">
+                    <option value="en">English</option>
+                    <option value="zh">Chinese (Traditional)</option>
+                </select>
+            </div>
+            <div class="debug-group">
+                <button id="toggleDebug">Show Logs</button>
+            </div>
+        </div>
+
+        <div id="debug-log-wrapper">
+            <div id="debug-log"></div>
+        </div>
+        
+        <div id="modelInfo">Model: Loading...</div>
+    </div>
+    <script type="module" src="popup.js"></script>
+</body>
+</html>

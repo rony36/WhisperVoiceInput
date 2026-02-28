@@ -1,0 +1,389 @@
+import { pipeline, env } from "@huggingface/transformers";
+import * as OpenCC from "opencc-js";
+
+// Configure environment for extension
+env.allowLocalModels = false;
+env.allowRemoteModels = true;
+env.useBrowserCache = true; // 開啟瀏覽器快取，這是加速關鍵
+
+// Point to local assets for ONNX Runtime
+env.backends.onnx.wasm.wasmPaths = chrome.runtime.getURL('assets/transformers/');
+
+const converter = OpenCC.Converter({ from: "cn", to: "tw" });
+let recorder = null;
+let audioChunks = [];
+let audioContext = null;
+let stream = null;
+
+const maybeConvert = (text) => {
+    if (text && /[\u4e00-\u9fa5]/.test(text)) {
+        return converter(text);
+    }
+    return text;
+};
+
+function logDebug(msg, color = "#d4d4d4") {
+    console.log(`[DEBUG] ${msg}`);
+    chrome.runtime.sendMessage({ type: "LOG_DEBUG", msg, color }).catch(() => {});
+}
+
+/**
+ * Simple Energy-based VAD to filter out silence
+ */
+function filterSilence(audioData, sampleRate = 16000) {
+    const threshold = 0.01; 
+    const chunkSize = Math.floor(sampleRate * 0.1); 
+    const padding = Math.floor(sampleRate * 0.4); 
+    
+    let speechSegments = [];
+    let isSpeech = false;
+    let lastSpeechEnd = -1;
+
+    for (let i = 0; i < audioData.length; i += chunkSize) {
+        let sum = 0;
+        const end = Math.min(i + chunkSize, audioData.length);
+        for (let j = i; j < end; j++) {
+            sum += Math.abs(audioData[j]);
+        }
+        const avg = sum / (end - i);
+
+        if (avg > threshold) {
+            if (!isSpeech) {
+                const start = Math.max(0, i - padding);
+                speechSegments.push({ start });
+                isSpeech = true;
+            }
+            lastSpeechEnd = end;
+        } else if (isSpeech && (i - lastSpeechEnd) > padding) {
+            speechSegments[speechSegments.length - 1].end = Math.min(audioData.length, lastSpeechEnd + padding);
+            isSpeech = false;
+        }
+    }
+
+    if (isSpeech) {
+        speechSegments[speechSegments.length - 1].end = audioData.length;
+    }
+
+    if (speechSegments.length === 0) return new Float32Array(0);
+
+    let totalLength = speechSegments.reduce((acc, seg) => acc + (seg.end - seg.start), 0);
+    let result = new Float32Array(totalLength);
+    let offset = 0;
+    for (let seg of speechSegments) {
+        result.set(audioData.subarray(seg.start, seg.end), offset);
+        offset += (seg.end - seg.start);
+    }
+    return result;
+}
+
+/**
+ * Centralized Model Configurations
+ * Explicitly define settings for every supported model_id
+ */
+const MODELS_CONFIG = {
+    'onnx-community/distil-large-v3.5-ONNX': {
+        loader: { device: 'webgpu', dtype: 'fp16' },
+        inference: {
+            chunk_length_s: 25,
+            stride_length_s: 5,
+            max_new_tokens: 1024,
+            batch_size: 4,
+            num_beams: 1,
+            repetition_penalty: 1.1,
+	    return_timestamps: false,
+            no_repeat_ngram_size: 3
+        }
+    },
+    'onnx-community/whisper-large-v3-turbo': {
+        loader: { device: 'webgpu', dtype: 'fp16' },
+        inference: {
+            chunk_length_s: 30,
+            stride_length_s: 5,
+            max_new_tokens: 1024,
+            batch_size: 4,
+            num_beams: 1,
+            repetition_penalty: 1.1,
+	    return_timestamps: false,
+            no_repeat_ngram_size: 3
+        }
+    },
+    'onnx-community/whisper-small': {
+        loader: { device: 'webgpu', dtype: 'fp32' },
+        inference: {
+            chunk_length_s: 30,
+            stride_length_s: 5,
+            max_new_tokens: 1024,
+            batch_size: 4,
+            num_beams: 1,
+            repetition_penalty: 1.1,
+	    return_timestamps: false,
+            no_repeat_ngram_size: 3
+        }
+    },
+    'onnx-community/whisper-base': {
+        loader: { device: 'webgpu', dtype: 'fp32' },
+        inference: {
+            chunk_length_s: 30,
+            stride_length_s: 5,
+            max_new_tokens: 1024,
+            batch_size: 4,
+            num_beams: 1,
+            repetition_penalty: 1.1,
+	    return_timestamps: false,
+            no_repeat_ngram_size: 3
+        }
+    },
+    'onnx-community/moonshine-base-ONNX': {
+        loader: { device: 'webgpu', dtype: 'fp32' },
+        inference: {
+            chunk_length_s: 30,
+            stride_length_s: 5,
+            max_new_tokens: 1024,
+            batch_size: 4,
+            num_beams: 1,
+            repetition_penalty: 1.1,
+            no_repeat_ngram_size: 3
+        }
+    },
+    'onnx-community/moonshine-base-zh-ONNX': {
+        loader: { device: 'webgpu', dtype: 'fp32' },
+        inference: {
+            chunk_length_s: 30,
+            stride_length_s: 5,
+            max_new_tokens: 1024,
+            batch_size: 4,
+            num_beams: 1,
+            repetition_penalty: 1.1,
+            no_repeat_ngram_size: 3
+        }
+    }
+};
+
+let transcriber = null;
+let activeDevice = "Unknown";
+let activeDtype = "Unknown";
+let currentSettings = null;
+let modelLoadingPromise = null;
+
+async function getTranscriber(modelId) {
+    if (!modelId) return null;
+
+    const currentId = transcriber ? transcriber.modelId : 'none';
+    if (currentId === modelId) {
+        return transcriber;
+    }
+
+    logDebug(`Model switch needed: ${currentId} -> ${modelId}`, "#ffcc00");
+
+    if (modelLoadingPromise && modelLoadingPromise.modelId === modelId) {
+        return modelLoadingPromise;
+    }
+
+    modelLoadingPromise = (async () => {
+        logDebug(`Loading model: ${modelId}...`, "#9cdcfe");
+
+        try {
+            const modelCfg = MODELS_CONFIG[modelId] || { loader: { device: 'webgpu' } };
+            
+            let config = {
+                ...modelCfg.loader,
+                progress_callback: (data) => {
+                    if (data.status === 'initiate') {
+                        logDebug(`Download started: ${data.file.split('/').pop()}`, "#9cdcfe");
+                    } else if (data.status === 'done') {
+                        logDebug(`Download finished: ${data.file.split('/').pop()}`, "#4ec9b0");
+                    }
+                    
+                    if (data.status === 'progress' || data.status === 'done') {
+                        chrome.runtime.sendMessage({ 
+                            type: "LOAD_PROGRESS", 
+                            file: data.file, 
+                            progress: data.progress,
+                            status: data.status
+                        }).catch(() => {});
+                    }
+                }
+            };
+
+            const p = await pipeline("automatic-speech-recognition", modelId, config);
+            activeDevice = config.device === 'webgpu' ? "GPU (WebGPU)" : "CPU (WASM)";
+            activeDtype = config.dtype || "fp32";
+            
+            p.modelId = modelId;
+            transcriber = p;
+            logDebug(`Model loaded on ${activeDevice} (${activeDtype})!`, "#4ec9b0");
+            
+            chrome.runtime.sendMessage({
+                type: "UPDATE_MODEL_INFO",
+                model: modelId.split('/').pop(),
+                device: activeDevice,
+                dtype: activeDtype
+            }).catch(() => {});
+
+            return p;
+        } finally {
+            modelLoadingPromise = null;
+        }
+    })();
+    
+    modelLoadingPromise.modelId = modelId;
+    return modelLoadingPromise;
+}
+
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.target !== "offscreen") return;
+
+    if (message.type === "START_RECORDING") {
+        currentSettings = message.settings;
+        logDebug(`Settings received: model=${currentSettings?.model}, lang=${currentSettings?.language}`);
+        startRecording(message.settings, sendResponse);
+        return true;
+    } else if (message.type === "STOP_RECORDING") {
+        stopRecording(currentSettings, sendResponse);
+        return true;
+    } else if (message.type === "GET_MODEL_INFO") {
+        if (transcriber) {
+            sendResponse({
+                model: transcriber.modelId.split('/').pop(),
+                device: activeDevice,
+                dtype: activeDtype
+            });
+        } else {
+            sendResponse(null);
+        }
+        return false;
+    } else if (message.type === "PREWARM_MODEL") {
+        currentSettings = message.settings;
+        getTranscriber(message.settings.model);
+        sendResponse({ success: true });
+        return false;
+    }
+    });
+async function startRecording(settings, sendResponse) {
+    try {
+        logDebug("--- New Session Started ---", "#dcdcaa");
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+        audioChunks = [];
+        
+        audioContext = new AudioContext();
+        const source = audioContext.createMediaStreamSource(stream);
+        const analyser = audioContext.createAnalyser();
+        analyser.fftSize = 32;
+        source.connect(analyser);
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+        const interval = setInterval(() => {
+            if (!recorder || recorder.state !== "recording") {
+                clearInterval(interval);
+                return;
+            }
+            analyser.getByteFrequencyData(dataArray);
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+            const volume = Math.min(100, Math.round((sum / dataArray.length) / 128 * 100));
+            chrome.runtime.sendMessage({ type: "AUDIO_VOLUME", volume }).catch(() => {});
+        }, 50);
+
+        recorder.ondataavailable = (e) => {
+            if (e.data.size > 0) audioChunks.push(e.data);
+        };
+        
+        recorder.start();
+        logDebug("Recording started...");
+        sendResponse({ success: true });
+    } catch (err) {
+        logDebug(`Recording failed: ${err.message}`, "#f44747");
+        sendResponse({ success: false, error: err.message });
+    }
+}
+
+async function stopRecording(settings, sendResponse) {
+    if (!recorder || recorder.state === "inactive") {
+        sendResponse({ success: false, error: "No active recorder" });
+        return;
+    }
+
+    recorder.onstop = async () => {
+        logDebug("Recording stopped, processing...");
+        const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+        
+        try {
+            const totalStart = performance.now();
+
+            // 1. Audio Decoding
+            const decodeStart = performance.now();
+            const arrayBuffer = await audioBlob.arrayBuffer();
+            const audioCtx = new AudioContext({ sampleRate: 16000 });
+            const decoded = await audioCtx.decodeAudioData(arrayBuffer);
+            let audioData = decoded.getChannelData(0);
+            const decodeEnd = performance.now();
+            logDebug(`[Perf] Audio Decode: ${Math.round(decodeEnd - decodeStart)}ms`, "#d19a66");
+
+            const originalDuration = audioData.length / 16000;
+            
+            // 2. VAD (Silence Filtering)
+            const vadStart = performance.now();
+            audioData = filterSilence(audioData, 16000);
+            const vadEnd = performance.now();
+            logDebug(`[Perf] VAD Process: ${Math.round(vadEnd - vadStart)}ms (${originalDuration.toFixed(1)}s -> ${(audioData.length/16000).toFixed(1)}s)`, "#d19a66");
+
+            if (audioData.length === 0) {
+                logDebug("No speech detected.");
+                chrome.runtime.sendMessage({ 
+                    type: "TRANSCRIPTION_RESULT", 
+                    text: "",
+                    status: "No speech detected" 
+                }).catch(() => {});
+                sendResponse({ success: true, text: "" });
+                return;
+            }
+
+            // 3. Model Retrieval / Pre-warm check
+            const modelStart = performance.now();
+            const p = await getTranscriber(settings.model);
+            const modelEnd = performance.now();
+            logDebug(`[Perf] Model Ready: ${Math.round(modelEnd - modelStart)}ms`, "#d19a66");
+
+            // 4. Core AI Inference
+            logDebug(`Inference started...`, "#9cdcfe");
+            logDebug(`Running on: ${p.modelId} (${activeDevice} ${activeDtype})`, "#9cdcfe");
+            
+            const inferStart = performance.now();
+            const modelCfg = MODELS_CONFIG[p.modelId] || { inference: {} };
+            const inferenceSettings = modelCfg.inference || {};
+            
+            const output = await p(audioData, {
+                language: settings.language === "auto" ? null : settings.language,
+                task: "transcribe",
+                ...inferenceSettings
+            });
+            const inferEnd = performance.now();
+            
+            const totalEnd = performance.now();
+            const transcribedText = maybeConvert(output.text);
+            
+            logDebug(`[Perf] Core Inference: ${Math.round(inferEnd - inferStart)}ms`, "#4ec9b0");
+            logDebug(`[Perf] TOTAL TIME: ${Math.round(totalEnd - totalStart)}ms`, "#4ec9b0");
+            logDebug(`Result: ${transcribedText}`);
+
+            // 主動發送結果給 Popup
+            chrome.runtime.sendMessage({ 
+                type: "TRANSCRIPTION_RESULT", 
+                text: transcribedText 
+            }).catch(() => {});
+
+            sendResponse({ success: true, text: transcribedText });
+        } catch (err) {
+            logDebug(`Error: ${err.message}`, "#f44747");
+            sendResponse({ success: false, error: err.message });
+        } finally {
+            if (stream) stream.getTracks().forEach(t => t.stop());
+            if (audioContext) audioContext.close();
+            recorder = null;
+        }
+    };
+
+    recorder.stop();
+}

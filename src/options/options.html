@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Whisper Options</title>
+    <style>
+        :root {
+            --primary-color: #0071e3;
+            --success-color: #28cd41;
+            --danger-color: #ff3b30;
+            --bg-color: #f5f5f7;
+            --card-bg: #ffffff;
+            --text-main: #1d1d1f;
+            --text-secondary: #86868b;
+            --border-color: #d2d2d7;
+            --shadow-card: 0 4px 24px rgba(0,0,0,0.04);
+        }
+
+        body {
+            padding: 40px 24px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            max-width: 550px;
+            margin: 0 auto;
+            color: var(--text-main);
+            background: var(--bg-color);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            background: var(--card-bg);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: var(--shadow-card);
+        }
+
+        h1 { 
+            font-size: 26px; 
+            margin: 0 0 32px 0; 
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .option-group { 
+            margin-bottom: 30px; 
+            padding-bottom: 20px;
+            border-bottom: 1px solid #f2f2f2;
+        }
+
+        .option-group:last-of-type {
+            border-bottom: none;
+        }
+
+        label { 
+            display: block; 
+            font-weight: 600; 
+            margin-bottom: 10px; 
+            font-size: 15px; 
+            color: var(--text-main);
+        }
+
+        select, input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            font-size: 15px;
+            background: #fff;
+            transition: all 0.2s;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        select:hover, input:hover {
+            border-color: #86868b;
+        }
+
+        select:focus, input:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 4px rgba(0,113,227,0.1);
+        }
+
+        .hint { 
+            font-size: 13px; 
+            color: var(--text-secondary); 
+            margin-top: 8px; 
+            line-height: 1.5; 
+        }
+
+        .footer {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        button:hover { 
+            background: #0077ed; 
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,113,227,0.2);
+        }
+
+        button:active { 
+            transform: scale(0.98); 
+        }
+        
+        /* Instruction Box */
+        .instruction-box {
+            background: #f8fbff;
+            border: 1px solid #e0f0ff;
+            padding: 20px;
+            border-radius: 16px;
+            margin-bottom: 32px;
+        }
+        
+        .instruction-box label {
+            color: var(--primary-color);
+            margin-bottom: 12px;
+        }
+
+        .instruction-content {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .instruction-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .shortcut {
+            background: #fff;
+            border: 1px solid #d0e4ff;
+            padding: 5px 10px;
+            border-radius: 8px;
+            font-family: -apple-system, SFMono-Regular, Consolas, monospace;
+            font-weight: 700;
+            font-size: 13px;
+            color: var(--primary-color);
+            min-width: 65px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,113,227,0.05);
+        }
+
+        .desc {
+            font-size: 14px;
+            color: #424245;
+            font-weight: 500;
+        }
+
+        /* Specific Elements */
+        #refreshCache {
+            background: #fff !important;
+            color: var(--text-main) !important;
+            border: 1px solid var(--border-color) !important;
+        }
+        #refreshCache:hover {
+            border-color: #86868b !important;
+            background: #f5f5f7 !important;
+        }
+
+        #grantMic {
+            background: var(--success-color) !important;
+        }
+        #grantMic:hover {
+            box-shadow: 0 4px 12px rgba(40,205,65,0.2) !important;
+        }
+
+        .status { 
+            font-size: 14px; 
+            color: var(--success-color); 
+            font-weight: 600; 
+            display: none; 
+            margin-top: 10px;
+            padding: 10px 16px;
+            background: rgba(40,205,65,0.1);
+            border-radius: 10px;
+            width: 100%;
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        .cache-item {
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            padding: 14px; 
+            background: #fbfbfd; 
+            border: 1px solid #f2f2f2; 
+            border-radius: 12px; 
+            margin-bottom: 10px; 
+            transition: all 0.2s;
+        }
+        .cache-item:hover {
+            border-color: #e2e2e7;
+            background: #f5f5f7;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Settings</h1>
+
+        <div class="option-group instruction-box">
+            <label>How to use</label>
+            <div class="instruction-content">
+                <div class="instruction-item">
+                    <span class="shortcut">Alt + V</span>
+                    <span class="desc">Open extension and start recording.</span>
+                </div>
+                <div class="instruction-item">
+                    <span class="shortcut">Space</span>
+                    <span class="desc">Stop recording and transcribe.</span>
+                </div>
+                <div class="hint" style="margin-top: 6px;">
+                    Customize shortcuts in <a href="#" id="chromeShortcuts" style="color: var(--primary-color); text-decoration: none; font-weight: 600;">Chrome Shortcuts</a>.
+                </div>
+            </div>
+        </div>
+        
+        <div class="option-group">
+            <label for="model">ASR Model</label>
+            <select id="model">
+                <option value="onnx-community/whisper-large-v3-turbo">onnx-community/whisper-large-v3-turbo</option>
+                <option value="onnx-community/distil-large-v3.5-ONNX">onnx-community/distil-large-v3.5-ONNX</option>
+                <option value="onnx-community/whisper-small">onnx-community/whisper-small</option>
+                <option value="onnx-community/whisper-base">onnx-community/whisper-base</option>
+                <option value="onnx-community/moonshine-base-ONNX">onnx-community/moonshine-base-ONNX</option>
+                <option value="onnx-community/moonshine-base-zh-ONNX">onnx-community/moonshine-base-zh-ONNX</option>
+            </select>
+            <div class="hint">Models are stored locally in your browser cache. WebGPU is used automatically for speed.</div>
+        </div>
+
+        <div class="option-group">
+            <label for="language">Default Language</label>
+            <select id="language">
+                <option value="en">English</option>
+                <option value="zh">Chinese (Traditional)</option>
+            </select>
+        </div>
+
+        <div class="option-group">
+            <label for="closeDelay">Auto-close Delay (seconds)</label>
+            <input type="number" id="closeDelay" min="0" max="300" step="1" style="width: 100px;">
+            <div class="hint">Time to wait before closing the popup after transcription.</div>
+        </div>
+
+        <div class="option-group">
+            <label>Microphone Access</label>
+            <div id="micStatus" style="font-size: 14px; margin-bottom: 12px; font-weight: 500;">Status: Checking...</div>
+            <button id="grantMic">Grant Permission</button>
+            <div class="hint">Required for capturing audio from your microphone.</div>
+        </div>
+
+        <div class="option-group">
+            <label>Local Model Cache</label>
+            <div id="cacheStatus" style="font-size: 14px; margin-bottom: 12px; color: var(--text-secondary);">Calculating...</div>
+            <div id="cacheList"></div>
+            <button id="refreshCache" style="margin-top: 12px;">Refresh Cache List</button>
+        </div>
+
+        <div class="footer">
+            <div id="status" class="status">✅ Settings saved automatically</div>
+        </div>
+    </div>
+
+    <script type="module" src="options.js"></script>
+</body>
+</html>
