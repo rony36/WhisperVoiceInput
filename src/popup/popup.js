@@ -177,9 +177,16 @@ Promise.all([
     let lang = storage.language || 'en';
     if (lang === 'zh') lang = 'zh-tw';
     langSelect.value = lang;
-    if (statusResponse && statusResponse.isRecording) {
-        updateButtonState('recording');
-        statusText.textContent = "Recording...";
+    
+    // Initial sync
+    if (statusResponse) {
+        if (statusResponse.isRecording) {
+            updateButtonState('recording');
+            statusText.textContent = "Recording...";
+        } else if (statusResponse.isProcessing) {
+            updateButtonState('processing');
+            statusText.textContent = "Processing...";
+        }
     }
     if (modelResponse) {
         modelInfoDiv.textContent = `Model: ${modelResponse.model} (${modelResponse.device} ${modelResponse.dtype})`;
@@ -255,7 +262,18 @@ function stopRecording() {
 }
 
 chrome.runtime.onMessage.addListener((message) => {
-    if (message.type === "AUDIO_VOLUME") {
+    if (message.type === "RECORDING_STATE_UPDATED") {
+        if (message.isRecording) {
+            updateButtonState('recording');
+            statusText.textContent = "Recording...";
+        } else if (message.isProcessing) {
+            updateButtonState('processing');
+            statusText.textContent = "Processing...";
+        } else {
+            updateButtonState('idle');
+            statusText.textContent = "Done!";
+        }
+    } else if (message.type === "AUDIO_VOLUME") {
         currentVolume = message.volume;
     } else if (message.type === "LOG_DEBUG") {
         logToUI(message.msg, message.color);

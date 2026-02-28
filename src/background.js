@@ -15,9 +15,18 @@ async function setupOffscreen(path) {
 }
 
 let isRecording = false;
+let isProcessing = false;
 let transcriptionHistory = []; // Persist only the latest 3 transcription results
 let logHistory = [];
 const MAX_LOGS = 100;
+
+function broadcastStatus() {
+  chrome.runtime.sendMessage({
+    type: "RECORDING_STATE_UPDATED",
+    isRecording,
+    isProcessing
+  }).catch(() => {});
+}
 
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name === "popup") {
@@ -31,12 +40,15 @@ chrome.commands.onCommand.addListener((command) => {
   if (command === "toggle-recording") {
     if (isRecording) {
       isRecording = false;
+      isProcessing = true;
       handleStopRecording();
     } else {
       isRecording = true;
+      isProcessing = false;
       logHistory = [];
       handleStartRecording();
     }
+    broadcastStatus();
   }
 });
 
@@ -74,7 +86,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "GET_STATUS") {
-    sendResponse({ isRecording });
+    sendResponse({ isRecording, isProcessing });
     return;
   }
 
@@ -92,18 +104,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === "START_RECORDING") {
     isRecording = true;
+    isProcessing = false;
     logHistory = [];
     handleStartRecording(sendResponse);
+    broadcastStatus();
     return true;
   }
 
   if (message.type === "STOP_RECORDING") {
     isRecording = false;
+    isProcessing = true;
     handleStopRecording(sendResponse);
+    broadcastStatus();
     return true;
   }
 
   if (message.type === "OFFSCREEN_TRANSCRIPTION_RESULT") {
+    isProcessing = false;
     if (message.text) {
       transcriptionHistory.unshift(message.text);
       if (transcriptionHistory.length > 3) {
@@ -121,6 +138,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         status: message.status,
         history: transcriptionHistory 
     }).catch(() => {});
+    broadcastStatus();
   }
 });
 
