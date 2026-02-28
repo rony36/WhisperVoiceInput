@@ -4,6 +4,7 @@ const waveformCanvas = document.getElementById('waveformCanvas');
 const outputList = document.getElementById('output-list'); // 改為清單容器
 const debugLog = document.getElementById('debug-log');
 const toggleDebugBtn = document.getElementById('toggleDebug');
+const copyLogsBtn = document.getElementById('copyLogsBtn');
 const debugLogWrapper = document.getElementById('debug-log-wrapper');
 const settingsBtn = document.getElementById('settingsBtn');
 const modelInfoDiv = document.getElementById('modelInfo');
@@ -300,6 +301,16 @@ toggleDebugBtn.onclick = () => {
     const isHidden = !debugLogWrapper.style.display || debugLogWrapper.style.display === "none";
     debugLogWrapper.style.display = isHidden ? "block" : "none";
     toggleDebugBtn.textContent = isHidden ? "Hide Logs" : "Show Logs";
+};
+
+copyLogsBtn.onclick = () => {
+    const logText = debugLog.innerText;
+    navigator.clipboard.writeText(logText).then(() => {
+        copyLogsBtn.classList.add('copied');
+        setTimeout(() => {
+            copyLogsBtn.classList.remove('copied');
+        }, 2000);
+    });
 };
 
 settingsBtn.onclick = () => chrome.runtime.openOptionsPage();

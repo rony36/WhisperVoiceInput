@@ -288,7 +288,7 @@
             border-color: #86868b;
         }
 
-        .debug-group { display: flex; align-items: center; }
+        .debug-group { display: flex; align-items: center; gap: 4px; }
         #toggleDebug { 
             font-size: 11px; 
             padding: 5px 10px; 
@@ -305,6 +305,43 @@
             background: #f5f5f7; 
             color: var(--text-main);
             border-color: #86868b;
+        }
+
+        #copyLogsBtn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border-radius: 8px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.6;
+        }
+
+        #copyLogsBtn:hover { 
+            opacity: 1;
+            background-color: rgba(0, 0, 0, 0.05); 
+        }
+
+        #copyLogsBtn::after {
+            content: "";
+            display: block;
+            width: 14px;
+            height: 14px;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%2386868b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>');
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: contain;
+            transition: all 0.2s;
+        }
+
+        #copyLogsBtn.copied::after {
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%2328cd41" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>');
+            transform: scale(1.1);
         }
         
         #debug-log-wrapper { display: none; width: 100%; margin-top: 12px; }
@@ -365,6 +402,7 @@
             </div>
             <div class="debug-group">
                 <button id="toggleDebug">Show Logs</button>
+                <button id="copyLogsBtn" title="Copy logs to clipboard"></button>
             </div>
         </div>
 
