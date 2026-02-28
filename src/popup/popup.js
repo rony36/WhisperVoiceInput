@@ -9,6 +9,8 @@ const debugLogWrapper = document.getElementById('debug-log-wrapper');
 const settingsBtn = document.getElementById('settingsBtn');
 const modelInfoDiv = document.getElementById('modelInfo');
 const langSelect = document.getElementById('langSelect');
+const permissionMask = document.getElementById('permissionMask');
+const fixPermissionMain = document.getElementById('fixPermissionMain');
 
 let isRecording = false;
 let isProcessing = false;
@@ -164,6 +166,54 @@ function renderHistory(history) {
     });
 }
 
+function checkPermissions() {
+    console.log("Checking permissions...");
+    const mask = document.getElementById('permissionMask');
+    if (!mask) return;
+
+    // We use enumerateDevices to double-check: if device labels are empty, permission is likely not granted.
+    const verifyDevices = () => {
+        navigator.mediaDevices.enumerateDevices().then(devices => {
+            const hasLabels = devices.some(d => d.kind === 'audioinput' && d.label !== "");
+            console.log("Has mic labels:", hasLabels);
+            if (hasLabels) {
+                mask.style.display = 'none';
+            } else {
+                mask.style.display = 'flex';
+            }
+        });
+    };
+
+    if (navigator.permissions && navigator.permissions.query) {
+        navigator.permissions.query({ name: 'microphone' }).then((permission) => {
+            console.log("Mic permission state:", permission.state);
+            if (permission.state === 'granted') {
+                mask.style.display = 'none';
+            } else {
+                mask.style.display = 'flex';
+            }
+
+            permission.onchange = () => {
+                checkPermissions();
+            };
+        }).catch(err => {
+            console.warn("Permission query failed, using device fallback", err);
+            verifyDevices();
+        });
+    } else {
+        verifyDevices();
+    }
+}
+
+// Ensure elements are accessed inside DOMContentLoaded or similar
+document.addEventListener('DOMContentLoaded', () => {
+    checkPermissions();
+});
+
+fixPermissionMain.onclick = () => {
+    chrome.runtime.openOptionsPage();
+};
+
 updateButtonState('idle');
 
 Promise.all([
@@ -216,7 +266,26 @@ window.addEventListener('keydown', (e) => {
     }
 });
 
-function startRecording() {
+async function startRecording() {
+    // Check permission first
+    try {
+        const permission = await navigator.permissions.query({ name: 'microphone' });
+        console.log("Mic permission state:", permission.state);
+        if (permission.state === 'denied') {
+            statusText.innerHTML = `Microphone access denied.<br/><a href="#" id="fixPermission" style="color: #007aff; text-decoration: underline; font-weight: bold;">Click here to fix in Settings</a>`;
+            document.getElementById('fixPermission').onclick = (e) => {
+                e.preventDefault();
+                chrome.runtime.openOptionsPage();
+            };
+            return;
+        }
+        
+        // If 'prompt', we can try to trigger the permission dialog via background/offscreen
+        // but we should be aware it might fail.
+    } catch (e) {
+        console.log("Permission query not supported.");
+    }
+
     // Fade the current top item to indicate a new recording session is starting
     const latestItem = outputList.querySelector('.history-item:first-child');
     if (latestItem) {
@@ -236,10 +305,12 @@ function startRecording() {
     // Keep existing list visible; new result will be prepended when transcription finishes
     debugLog.innerHTML = "";
     chrome.runtime.sendMessage({ type: "START_RECORDING" }, (response) => {
-        if (response && response.success) statusText.textContent = "Recording...";
-        else {
+        if (response && response.success) {
+            statusText.textContent = "Recording...";
+        } else {
             updateButtonState('idle');
             const error = response?.error || "Unknown error";
+            console.error("Start recording failed:", error);
             if (error.includes('Permission') || error.includes('NotAllowedError') || error.includes('denied')) {
                 statusText.innerHTML = `Microphone access denied.<br/><a href="#" id="fixPermission" style="color: #007aff; text-decoration: underline; font-weight: bold;">Click here to fix in Settings</a>`;
                 document.getElementById('fixPermission').onclick = (e) => {
@@ -265,13 +336,19 @@ chrome.runtime.onMessage.addListener((message) => {
     if (message.type === "RECORDING_STATE_UPDATED") {
         if (message.isRecording) {
             updateButtonState('recording');
-            statusText.textContent = "Recording...";
+            // Only update text if it's currently showing generic status
+            if (statusText.textContent === "Starting..." || statusText.textContent === "Done!") {
+                statusText.textContent = "Recording...";
+            }
         } else if (message.isProcessing) {
             updateButtonState('processing');
             statusText.textContent = "Processing...";
         } else {
             updateButtonState('idle');
-            statusText.textContent = "Done!";
+            // Only update text if it's not showing an error or permission warning
+            if (!statusText.innerHTML.includes('denied') && !statusText.textContent.startsWith('Error')) {
+                statusText.textContent = "Done!";
+            }
         }
     } else if (message.type === "AUDIO_VOLUME") {
         currentVolume = message.volume;

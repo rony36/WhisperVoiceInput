@@ -24,6 +24,8 @@
             overflow-x: hidden;
             color: var(--text-main);
             -webkit-font-smoothing: antialiased;
+            position: relative;
+            min-height: 400px;
         }
 
         .container {
@@ -438,9 +440,62 @@
             text-align: center;
             opacity: 0.9;
         }
+
+        /* Permission Mask */
+        #permissionMask {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(10px);
+            z-index: 9999;
+            display: flex; /* Changed from none to flex */
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 30px;
+            text-align: center;
+        }
+        #permissionMask .icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        #permissionMask h2 {
+            font-size: 18px;
+            margin: 0 0 12px 0;
+            color: var(--text-main);
+        }
+        #permissionMask p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin: 0 0 24px 0;
+            line-height: 1.6;
+        }
+        #fixPermissionMain {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        #fixPermissionMain:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+        }
     </style>
 </head>
 <body>
+    <div id="permissionMask">
+        <div class="icon">🎤</div>
+        <h2>Microphone Access Required</h2>
+        <p>This extension needs microphone access to record and transcribe your voice.</p>
+        <button id="fixPermissionMain">Grant Permission</button>
+    </div>
     <div class="container">
         <header>
             <div class="logo-area">

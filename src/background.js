@@ -156,13 +156,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (sendResponse) sendResponse({ success: false, error: "System busy" });
         return;
       }
-      setRecordingState(true).then(() => {
-        setProcessingState(false).then(() => {
-          logHistory = [];
-          handleStartRecording(sendResponse);
-          broadcastStatus();
-        });
-      });
+      // Reset log and start
+      logHistory = [];
+      handleStartRecording(sendResponse);
     });
     return true;
   }
@@ -211,22 +207,40 @@ async function handleStartRecording(sendResponse) {
 
     console.log("Starting recording with settings:", settings);
     await setupOffscreen("src/offscreen.html");
+    
+    // Set recording state only after offscreen is ready, but before actual recording starts
+    await setRecordingState(true);
+    await setProcessingState(false);
+    broadcastStatus();
+    
     triggerSound('start');
+    
+    // Explicitly check for last error during message passing
     chrome.runtime.sendMessage({ 
       type: "START_RECORDING", 
       target: "offscreen",
       settings: settings
     }, (response) => {
       if (chrome.runtime.lastError) {
+        console.error("[Whisper] Start failed (lastError):", chrome.runtime.lastError.message);
         setRecordingState(false);
         setProcessingState(false);
         broadcastStatus();
         if (sendResponse) sendResponse({ success: false, error: chrome.runtime.lastError.message });
         return;
       }
+      
+      if (response && !response.success) {
+        console.error("[Whisper] Start failed (offscreen error):", response.error);
+        setRecordingState(false);
+        setProcessingState(false);
+        broadcastStatus();
+      }
+      
       if (sendResponse) sendResponse(response);
     });
   } catch (err) {
+    console.error("[Whisper] Critical start error:", err.message);
     await setRecordingState(false);
     await setProcessingState(false);
     broadcastStatus();
