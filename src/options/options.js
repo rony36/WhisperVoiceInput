@@ -1,5 +1,18 @@
 console.log("Options JS script starting...");
 
+// Fetch and display current keyboard shortcuts
+const updateShortcuts = () => {
+  chrome.commands.getAll((commands) => {
+    const toggleCommand = commands.find(c => c.name === "toggle-recording");
+    if (toggleCommand && toggleCommand.shortcut) {
+      const el = document.getElementById('toggleShortcut');
+      if (el) {
+        el.textContent = toggleCommand.shortcut;
+      }
+    }
+  });
+};
+
 // Saves options to chrome.storage
 const saveOptions = () => {
   const model = document.getElementById('model').value;
@@ -14,10 +27,12 @@ const saveOptions = () => {
       console.log("Storage save callback fired.");
       // Update status to let user know options were saved.
       const status = document.getElementById('status');
-      status.style.display = 'block';
-      setTimeout(() => {
-        status.style.display = 'none';
-      }, 2000);
+      if (status) {
+        status.style.display = 'block';
+        setTimeout(() => {
+          status.style.display = 'none';
+        }, 2000);
+      }
     }
   );
 };
@@ -167,6 +182,7 @@ document.addEventListener('DOMContentLoaded', () => {
   restoreOptions();
   checkMicPermission();
   updateCacheList();
+  updateShortcuts();
 
   // Attach auto-save listeners to all configuration fields
   ['model', 'language', 'enableSounds'].forEach(id => {
