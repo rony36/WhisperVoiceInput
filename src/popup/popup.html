@@ -125,15 +125,23 @@
 
         .record-btn.recording { 
             background: linear-gradient(135deg, #34e150, #28cd41); 
-            box-shadow: 0 4px 12px rgba(40, 205, 65, 0.2), 0 12px 28px rgba(40, 205, 65, 0.3); 
+            box-shadow: 0 6px 20px rgba(40,205,65,0.4); 
             animation: pulse 2s infinite; 
+            transition: none !important;
         }
 
         .record-btn.working { 
             background: linear-gradient(135deg, #0082ff, #0071e3); 
-            box-shadow: 0 4px 12px rgba(0, 113, 227, 0.2), 0 12px 28px rgba(0, 113, 227, 0.3); 
+            box-shadow: 0 6px 20px rgba(0,113,227,0.4); 
             animation: breathe 1.5s infinite ease-in-out; 
             cursor: not-allowed; 
+            transition: none !important;
+        }
+
+        .record-btn.loading {
+            background: linear-gradient(135deg, #666, #444);
+            box-shadow: none;
+            cursor: not-allowed;
         }
         
         @keyframes pulse { 

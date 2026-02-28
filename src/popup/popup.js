@@ -68,6 +68,7 @@ drawWaveform();
 const port = chrome.runtime.connect({ name: "popup" });
 
 function updateButtonState(state) {
+    // Ensure we clean up flags immediately
     if (state === 'idle') {
         isRecording = false;
         isProcessing = false;
@@ -86,49 +87,45 @@ function updateButtonState(state) {
         isLoading = false;
     }
 
+    // Clear all state classes first
+    recordBtn.classList.remove("recording", "working", "loading");
+
     switch (state) {
         case 'idle':
             recordBtn.disabled = false;
             recordBtn.textContent = "START";
-            recordBtn.classList.remove("recording", "working");
-            recordBtn.style.background = "linear-gradient(135deg, #ff5f57, #ff3b30)";
-            recordBtn.style.boxShadow = "0 6px 16px rgba(255,59,48,0.3)";
-            recordBtn.style.cursor = "pointer";
-            recordBtn.style.opacity = "1";
+            recordBtn.style.background = ""; // Clear inline styles to let CSS take over
+            recordBtn.style.boxShadow = "";
             currentVolume = 0;
             break;
         case 'loading':
             recordBtn.disabled = true;
             recordBtn.textContent = "LOADING...";
-            recordBtn.classList.remove("recording");
-            recordBtn.classList.add("working");
+            recordBtn.classList.add("loading");
             recordBtn.style.background = "linear-gradient(135deg, #666, #444)";
             recordBtn.style.boxShadow = "none";
-            recordBtn.style.cursor = "not-allowed";
             currentVolume = 0;
             break;
         case 'recording':
             recordBtn.disabled = false;
             recordBtn.textContent = "STOP";
             recordBtn.classList.add("recording");
-            recordBtn.classList.remove("working");
             recordBtn.style.background = "linear-gradient(135deg, #34e150, #28cd41)";
             recordBtn.style.boxShadow = "0 6px 20px rgba(40,205,65,0.4)";
-            recordBtn.style.cursor = "pointer";
-            recordBtn.style.opacity = "1";
             break;
         case 'processing':
-            isProcessing = true;
-            recordBtn.style.background = "linear-gradient(135deg, #0082ff, #0071e3)";
             recordBtn.disabled = true;
             recordBtn.textContent = "WORKING...";
-            recordBtn.classList.remove("recording");
             recordBtn.classList.add("working");
+            // Set styles immediately and synchronously
+            recordBtn.style.background = "linear-gradient(135deg, #0082ff, #0071e3)";
             recordBtn.style.boxShadow = "0 6px 20px rgba(0,113,227,0.4)";
-            recordBtn.style.cursor = "not-allowed";
             currentVolume = 0;
             break;
     }
+
+    // Force reflow to ensure the browser commits these changes before any other heavy logic runs
+    void recordBtn.offsetWidth;
 }
 
 function logToUI(msg, color = "#d4d4d4", timeStr = null) {
