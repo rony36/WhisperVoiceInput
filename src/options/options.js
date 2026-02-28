@@ -168,11 +168,11 @@ document.addEventListener('DOMContentLoaded', () => {
   checkMicPermission();
   updateCacheList();
 
-  // 為所有輸入元件加上自動儲存監聽器
+  // Attach auto-save listeners to all configuration fields
   ['model', 'language', 'closeDelay'].forEach(id => {
     const el = document.getElementById(id);
     el.addEventListener('change', saveOptions);
-    // 對於數字輸入框，我們也監聽 input 事件，讓調整更即時
+    // For numeric inputs, listen for immediate changes via the input event
     if (id === 'closeDelay') {
         el.addEventListener('input', saveOptions);
     }

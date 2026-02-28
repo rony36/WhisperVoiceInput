@@ -15,7 +15,7 @@ async function setupOffscreen(path) {
 }
 
 let isRecording = false;
-let transcriptionHistory = []; // 儲存最近三筆
+let transcriptionHistory = []; // Persist only the latest 3 transcription results
 let logHistory = [];
 const MAX_LOGS = 100;
 
@@ -69,7 +69,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         transcriptionHistory.pop();
       }
     }
-    // 廣播結果與最新的歷史清單
+    // Broadcast result and updated history to all active extension pages
     chrome.runtime.sendMessage({ 
         type: "TRANSCRIPTION_RESULT", 
         text: message.text,

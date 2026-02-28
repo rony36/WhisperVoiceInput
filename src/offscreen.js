@@ -4,7 +4,7 @@ import * as OpenCC from "opencc-js";
 // Configure environment for extension
 env.allowLocalModels = false;
 env.allowRemoteModels = true;
-env.useBrowserCache = true; // 開啟瀏覽器快取，這是加速關鍵
+env.useBrowserCache = true; // Critical: Enable browser caching to speed up model loading on subsequent runs
 
 // Point to local assets for ONNX Runtime
 const wasmBase = chrome.runtime.getURL('assets/transformers/');
@@ -110,10 +110,10 @@ const MODELS_CONFIG = {
         inference: {
             chunk_length_s: 30,
             stride_length_s: 5,
-            max_new_tokens: 448, // 通常不需要 1024
-            batch_size: 1, // 降低 Batch Size
+            max_new_tokens: 448, // 448 tokens is usually sufficient for common voice inputs
+            batch_size: 1, // Single stream processing: Batch size 1 is optimal for real-time inference
             num_beams: 1,
-            repetition_penalty: 1.0, // Turbo 模型對此較不敏感
+            repetition_penalty: 1.0, // Turbo models handle repetitions well; penalty 1.0 is adequate
             return_timestamps: false,
             no_repeat_ngram_size: 3
         }
@@ -387,7 +387,7 @@ async function stopRecording(settings, sendResponse) {
             logDebug(`[Perf] TOTAL TIME: ${Math.round(totalEnd - totalStart)}ms`, "#4ec9b0");
             logDebug(`Result: ${transcribedText}`);
 
-            // 主動發送結果給 Popup
+            // Push final transcription result to the popup via runtime message
             chrome.runtime.sendMessage({ 
                 type: "TRANSCRIPTION_RESULT", 
                 text: transcribedText 

@@ -1,7 +1,7 @@
 const recordBtn = document.getElementById('recordBtn');
 const statusText = document.getElementById('status');
 const waveformCanvas = document.getElementById('waveformCanvas');
-const outputList = document.getElementById('output-list'); // 改為清單容器
+const outputList = document.getElementById('output-list'); // Container for history item list
 const debugLog = document.getElementById('debug-log');
 const toggleDebugBtn = document.getElementById('toggleDebug');
 const copyLogsBtn = document.getElementById('copyLogsBtn');
@@ -141,7 +141,7 @@ function logToUI(msg, color = "#d4d4d4", timeStr = null) {
     debugLog.scrollTop = debugLog.scrollHeight;
 }
 
-// 渲染歷史紀錄清單
+// Render the list of transcription history
 function renderHistory(history) {
     outputList.innerHTML = "";
     if (!history || history.length === 0) return;
@@ -156,7 +156,7 @@ function renderHistory(history) {
         outputList.appendChild(div);
     });
 
-    // 綁定複製按鈕
+    // Bind click events to mini copy buttons
     document.querySelectorAll('.mini-copy-btn').forEach(btn => {
         btn.onclick = (e) => {
             const txt = e.target.getAttribute('data-text');
@@ -222,25 +222,26 @@ function startRecording() {
         closeTimer = null;
     }
 
-    // 將現有的最新紀錄變淺，為新結果騰出空間
+    // Fade the current top item to indicate a new recording session is starting
     const latestItem = outputList.querySelector('.history-item:first-child');
     if (latestItem) {
         latestItem.style.background = "#fafafa";
-        latestItem.style.border = "1px solid #f5f5f5";
+        latestItem.style.border = "1px solid #f5f5f7";
         latestItem.style.fontWeight = "400";
         latestItem.style.color = "#666";
         latestItem.style.fontSize = "13px";
         latestItem.style.paddingLeft = "16px";
-        // 隱藏藍色邊條 (透過將 width 設為 0)
+        // Hide the blue indicator bar by modifying the CSS variable
         latestItem.style.setProperty('--pseudo-width', '0'); 
     }
 
     updateButtonState('recording');
 
     statusText.textContent = "Starting...";
-    // outputList 不需要立刻清空，錄音完才會推入新項
+    // Keep existing list visible; new result will be prepended when transcription finishes
     debugLog.innerHTML = "";
     chrome.runtime.sendMessage({ type: "START_RECORDING" }, (response) => {
+
         if (response && response.success) statusText.textContent = "Recording...";
         else {
             updateButtonState('idle');
@@ -289,7 +290,7 @@ chrome.runtime.onMessage.addListener((message) => {
     } else if (message.type === "TRANSCRIPTION_RESULT") {
         statusText.textContent = message.status || "Done!";
         
-        // 直接使用訊息中帶來的最新歷史紀錄
+        // Update the UI list using the history data synchronized from background
         if (message.history) {
             renderHistory(message.history);
         }
