@@ -30,9 +30,20 @@ function updateBadge(isRecording) {
   }
 }
 
-async function getRecordingState() {
-  const data = await chrome.storage.local.get({ isRecording: false });
-  return data.isRecording;
+async function getStatus() {
+  const data = await chrome.storage.local.get({ isRecording: false, isProcessing: false });
+  
+  // Safety check: If we think we are processing but there is no offscreen document, reset it.
+  if (data.isProcessing) {
+    const hasDocument = await chrome.offscreen.hasDocument();
+    if (!hasDocument) {
+      console.log("[Whisper] Safety check: isProcessing was true but no offscreen doc found. Resetting.");
+      await setProcessingState(false);
+      return { ...data, isProcessing: false };
+    }
+  }
+  
+  return data;
 }
 
 async function setRecordingState(state) {
@@ -40,12 +51,17 @@ async function setRecordingState(state) {
   await chrome.storage.local.set({ isRecording: state });
 }
 
+async function setProcessingState(state) {
+  isProcessing = state;
+  await chrome.storage.local.set({ isProcessing: state });
+}
+
 async function broadcastStatus() {
-  const recording = await getRecordingState();
+  const { isRecording: recording, isProcessing: processing } = await getStatus();
   chrome.runtime.sendMessage({
     type: "RECORDING_STATE_UPDATED",
     isRecording: recording,
-    isProcessing
+    isProcessing: processing
   }).catch(() => {});
   updateBadge(recording);
 }
@@ -60,18 +76,25 @@ chrome.runtime.onConnect.addListener((port) => {
 
 chrome.commands.onCommand.addListener(async (command) => {
   if (command === "toggle-recording") {
-    const recording = await getRecordingState();
+    const { isRecording: recording, isProcessing: processing } = await getStatus();
     if (recording) {
       await setRecordingState(false);
-      isProcessing = true;
+      await setProcessingState(true);
       handleStopRecording();
+      broadcastStatus();
     } else {
+      // Prevent starting new recording if still processing previous one
+      if (processing) {
+        console.log("[Whisper] Busy processing, ignoring start command.");
+        triggerSound('error');
+        return;
+      }
       await setRecordingState(true);
-      isProcessing = false;
+      await setProcessingState(false);
       logHistory = [];
       handleStartRecording();
+      broadcastStatus();
     }
-    broadcastStatus();
   }
 });
 
@@ -109,8 +132,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "GET_STATUS") {
-    sendResponse({ isRecording, isProcessing });
-    return;
+    getStatus().then(status => {
+      sendResponse({ isRecording: status.isRecording, isProcessing: status.isProcessing });
+    });
+    return true;
   }
 
   if (message.type === "GET_UI_STATE") {
@@ -126,48 +151,54 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "START_RECORDING") {
-    setRecordingState(true).then(() => {
-      isProcessing = false;
-      logHistory = [];
-      handleStartRecording(sendResponse);
-      broadcastStatus();
-    }).catch(err => {
-      if (sendResponse) sendResponse({ success: false, error: err.message });
+    getStatus().then(status => {
+      if (status.isProcessing) {
+        if (sendResponse) sendResponse({ success: false, error: "System busy" });
+        return;
+      }
+      setRecordingState(true).then(() => {
+        setProcessingState(false).then(() => {
+          logHistory = [];
+          handleStartRecording(sendResponse);
+          broadcastStatus();
+        });
+      });
     });
     return true;
   }
 
   if (message.type === "STOP_RECORDING") {
     setRecordingState(false).then(() => {
-      isProcessing = true;
-      handleStopRecording(sendResponse);
-      broadcastStatus();
-    }).catch(err => {
-      if (sendResponse) sendResponse({ success: false, error: err.message });
+      setProcessingState(true).then(() => {
+        handleStopRecording(sendResponse);
+        broadcastStatus();
+      });
     });
     return true;
   }
 
   if (message.type === "OFFSCREEN_TRANSCRIPTION_RESULT") {
-    isProcessing = false;
-    if (message.text) {
-      transcriptionHistory.unshift(message.text);
-      if (transcriptionHistory.length > 5) {
-        transcriptionHistory.pop();
+    setProcessingState(false).then(() => {
+      if (message.text) {
+        transcriptionHistory.unshift(message.text);
+        if (transcriptionHistory.length > 5) {
+          transcriptionHistory.pop();
+        }
+        showNotification("Transcription Complete", message.text);
+        triggerSound('copy');
+      } else {
+        showNotification("Transcription", message.status || "Finished with no text.");
       }
-      showNotification("Transcription Complete", message.text);
-      triggerSound('copy');
-    } else {
-      showNotification("Transcription", message.status || "Finished with no text.");
-    }
-    // Broadcast result and updated history to all active extension pages (e.g., popup)
-    chrome.runtime.sendMessage({ 
-        type: "TRANSCRIPTION_RESULT", 
-        text: message.text,
-        status: message.status,
-        history: transcriptionHistory 
-    }).catch(() => {});
-    broadcastStatus();
+      // Broadcast result and updated history to all active extension pages (e.g., popup)
+      chrome.runtime.sendMessage({ 
+          type: "TRANSCRIPTION_RESULT", 
+          text: message.text,
+          status: message.status,
+          history: transcriptionHistory 
+      }).catch(() => {});
+      broadcastStatus();
+    });
+    return false;
   }
 });
 
@@ -186,9 +217,19 @@ async function handleStartRecording(sendResponse) {
       target: "offscreen",
       settings: settings
     }, (response) => {
+      if (chrome.runtime.lastError) {
+        setRecordingState(false);
+        setProcessingState(false);
+        broadcastStatus();
+        if (sendResponse) sendResponse({ success: false, error: chrome.runtime.lastError.message });
+        return;
+      }
       if (sendResponse) sendResponse(response);
     });
   } catch (err) {
+    await setRecordingState(false);
+    await setProcessingState(false);
+    broadcastStatus();
     if (sendResponse) sendResponse({ success: false, error: err.message });
   }
 }
@@ -199,6 +240,12 @@ async function handleStopRecording(sendResponse) {
     type: "STOP_RECORDING", 
     target: "offscreen"
   }, (response) => {
+    if (chrome.runtime.lastError) {
+      setProcessingState(false);
+      broadcastStatus();
+      if (sendResponse) sendResponse({ success: false, error: chrome.runtime.lastError.message });
+      return;
+    }
     if (sendResponse) sendResponse(response);
   });
 }

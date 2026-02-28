@@ -212,6 +212,11 @@ function playSound(type) {
             playTone(261.63, now, 0.25, 'sine', 0.1); // C4 (Longer)
             playTone(329.63, now + 0.15, 0.35, 'sine', 0.08); // E4 (Even longer tail)
             break;
+        case 'error':
+            // Quick, low double-thud (G2 to G2)
+            playTone(98.00, now, 0.1, 'triangle', 0.15);
+            playTone(98.00, now + 0.12, 0.1, 'triangle', 0.15);
+            break;
     }
 }
 
@@ -472,6 +477,12 @@ async function stopRecording(settings, sendResponse) {
 
         } catch (err) {
             logDebug(`Error: ${err.message}`, "#f44747");
+            // Critical: Always notify the background that we've finished, even if failed.
+            chrome.runtime.sendMessage({ 
+                type: "OFFSCREEN_TRANSCRIPTION_RESULT", 
+                text: "",
+                status: "Error: " + err.message
+            }).catch(() => {});
         } finally {
             if (stream) {
                 stream.getTracks().forEach(t => t.stop());
