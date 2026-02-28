@@ -176,6 +176,45 @@ let activeDtype = "Unknown";
 let currentSettings = null;
 let modelLoadingPromise = null;
 
+// --- Sound Effects Logic ---
+const effectCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+function playSound(type) {
+    const now = effectCtx.currentTime;
+    
+    const playTone = (freq, start, duration, waveType = 'sine', volume = 0.1) => {
+        const osc = effectCtx.createOscillator();
+        const g = effectCtx.createGain();
+        osc.type = waveType;
+        osc.frequency.setValueAtTime(freq, start);
+        g.gain.setValueAtTime(0, start);
+        g.gain.linearRampToValueAtTime(volume, start + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+        osc.connect(g);
+        g.connect(effectCtx.destination);
+        osc.start(start);
+        osc.stop(start + duration);
+    };
+
+    switch (type) {
+        case 'start':
+            // Modern "blip-up" (E5 to A5)
+            playTone(659.25, now, 0.12, 'sine', 0.08);
+            playTone(880.00, now + 0.06, 0.15, 'sine', 0.07);
+            break;
+        case 'stop':
+            // Modern "blip-down" (A5 to E5)
+            playTone(880.00, now, 0.12, 'sine', 0.08);
+            playTone(659.25, now + 0.06, 0.15, 'sine', 0.07);
+            break;
+        case 'copy':
+            // Longer, relaxed "Dudu" Pulse (C4 to E4) - More substantial feel
+            playTone(261.63, now, 0.25, 'sine', 0.1); // C4 (Longer)
+            playTone(329.63, now + 0.15, 0.35, 'sine', 0.08); // E4 (Even longer tail)
+            break;
+    }
+}
+
 async function getTranscriber(modelId) {
     if (!modelId) return null;
 
@@ -253,6 +292,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     } else if (message.type === "STOP_RECORDING") {
         stopRecording(currentSettings, sendResponse);
         return true;
+    } else if (message.type === "PLAY_SOUND") {
+        playSound(message.soundType);
+        if (sendResponse) sendResponse({ success: true });
+        return false;
     } else if (message.type === "GET_MODEL_INFO") {
         if (transcriber) {
             sendResponse({
@@ -307,6 +350,34 @@ async function startRecording(settings, sendResponse) {
     } catch (err) {
         logDebug(`Recording failed: ${err.message}`, "#f44747");
         sendResponse({ success: false, error: err.message });
+    }
+}
+
+// --- Clipboard Logic ---
+async function copyToClipboard(text) {
+    if (!text) return;
+    try {
+        // Method 1: Modern Clipboard API
+        await navigator.clipboard.writeText(text);
+        logDebug("Copied using navigator.clipboard", "#28cd41");
+    } catch (err) {
+        logDebug("navigator.clipboard failed, trying execCommand fallback", "#ffcc00");
+        // Method 2: Legacy execCommand('copy') - often more reliable in background contexts
+        try {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+            const success = document.execCommand('copy');
+            document.body.removeChild(textArea);
+            if (success) {
+                logDebug("Copied using execCommand fallback", "#28cd41");
+            } else {
+                throw new Error("execCommand('copy') returned false");
+            }
+        } catch (fallbackErr) {
+            logDebug(`All clipboard methods failed: ${fallbackErr.message}`, "#f44747");
+        }
     }
 }
 
@@ -386,6 +457,9 @@ async function stopRecording(settings, sendResponse) {
             logDebug(`[Perf] Core Inference: ${Math.round(inferEnd - inferStart)}ms`, "#4ec9b0");
             logDebug(`[Perf] TOTAL TIME: ${Math.round(totalEnd - totalStart)}ms`, "#4ec9b0");
             logDebug(`Result: ${transcribedText}`);
+
+            // Copy to clipboard directly from offscreen context
+            await copyToClipboard(transcribedText);
 
             // Push final transcription result to the popup via runtime message
             chrome.runtime.sendMessage({ 

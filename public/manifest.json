@@ -6,7 +6,8 @@
   "permissions": [
     "storage",
     "offscreen",
-    "clipboardWrite"
+    "clipboardWrite",
+    "notifications"
   ],
   "background": {
     "service_worker": "src/background.js",
@@ -38,12 +39,12 @@
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://huggingface.co https://*.huggingface.co https://cdn.jsdelivr.net https://*.huggingface.cloud https://hf.co https://*.hf.co https://*.xethub.hf.co https://s3.amazonaws.com https://*.s3.amazonaws.com"
   },
   "commands": {
-    "_execute_action": {
+    "toggle-recording": {
       "suggested_key": {
         "default": "Alt+V",
         "mac": "Command+Shift+V"
       },
-      "description": "Open popup and toggle recording"
+      "description": "Start/Stop recording in the background"
     }
   }
 }

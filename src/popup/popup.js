@@ -16,49 +16,6 @@ let isLoading = false;
 let fileProgress = {};
 let currentVolume = 0;
 let animationId = null;
-let closeTimer = null;
-let enableSounds = true;
-
-// --- Sound Effects Logic ---
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-function playSound(type) {
-    if (!enableSounds) return;
-    
-    const now = audioCtx.currentTime;
-    
-    const playTone = (freq, start, duration, waveType = 'sine', volume = 0.1) => {
-        const osc = audioCtx.createOscillator();
-        const g = audioCtx.createGain();
-        osc.type = waveType;
-        osc.frequency.setValueAtTime(freq, start);
-        g.gain.setValueAtTime(0, start);
-        g.gain.linearRampToValueAtTime(volume, start + 0.01);
-        g.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-        osc.connect(g);
-        g.connect(audioCtx.destination);
-        osc.start(start);
-        osc.stop(start + duration);
-    };
-
-    switch (type) {
-        case 'start':
-            // Modern "blip-up" (E5 to A5)
-            playTone(659.25, now, 0.12, 'sine', 0.08);
-            playTone(880.00, now + 0.06, 0.15, 'sine', 0.07);
-            break;
-        case 'stop':
-            // Modern "blip-down" (A5 to E5)
-            playTone(880.00, now, 0.12, 'sine', 0.08);
-            playTone(659.25, now + 0.06, 0.15, 'sine', 0.07);
-            break;
-        case 'copy':
-            // Longer, relaxed "Dudu" Pulse (C4 to E4) - More substantial feel
-            playTone(261.63, now, 0.25, 'sine', 0.1); // C4 (Longer)
-            playTone(329.63, now + 0.15, 0.35, 'sine', 0.08); // E4 (Even longer tail)
-            break;
-    }
-}
 
 // --- Waveform Drawing Logic ---
 const ctx = waveformCanvas.getContext('2d');
@@ -200,7 +157,8 @@ function renderHistory(history) {
         btn.onclick = (e) => {
             const txt = e.target.getAttribute('data-text');
             navigator.clipboard.writeText(txt).then(() => {
-                playSound('copy');
+                // Background script will check enableSounds for us
+                chrome.runtime.sendMessage({ type: "PLAY_SOUND_GLOBAL", soundType: "copy" }).catch(() => {});
                 e.target.classList.add('copied');
                 setTimeout(() => e.target.classList.remove('copied'), 2000);
             });
@@ -214,9 +172,8 @@ Promise.all([
     new Promise(resolve => chrome.runtime.sendMessage({ type: "GET_STATUS" }, resolve)),
     new Promise(resolve => chrome.runtime.sendMessage({ type: "GET_MODEL_INFO", target: "offscreen" }, resolve)),
     new Promise(resolve => chrome.runtime.sendMessage({ type: "GET_UI_STATE" }, resolve)),
-    chrome.storage.local.get({ language: 'en', enableSounds: true })
+    chrome.storage.local.get({ language: 'en' })
 ]).then(([statusResponse, modelResponse, uiState, storage]) => {
-    enableSounds = storage.enableSounds !== false;
     let lang = storage.language || 'en';
     if (lang === 'zh') lang = 'zh-tw';
     langSelect.value = lang;
@@ -233,9 +190,6 @@ Promise.all([
             debugLog.innerHTML = "";
             uiState.logHistory.forEach(log => logToUI(log.msg, log.color, log.time));
         }
-    }
-    if (!statusResponse?.isRecording && !isProcessing && !isLoading) {
-        setTimeout(startRecording, 100);
     }
 });
 
@@ -258,13 +212,6 @@ window.addEventListener('keydown', (e) => {
 });
 
 function startRecording() {
-    if (closeTimer) {
-        clearTimeout(closeTimer);
-        closeTimer = null;
-    }
-
-    playSound('start');
-
     // Fade the current top item to indicate a new recording session is starting
     const latestItem = outputList.querySelector('.history-item:first-child');
     if (latestItem) {
@@ -284,7 +231,6 @@ function startRecording() {
     // Keep existing list visible; new result will be prepended when transcription finishes
     debugLog.innerHTML = "";
     chrome.runtime.sendMessage({ type: "START_RECORDING" }, (response) => {
-
         if (response && response.success) statusText.textContent = "Recording...";
         else {
             updateButtonState('idle');
@@ -303,7 +249,6 @@ function startRecording() {
 }
 
 function stopRecording() {
-    playSound('stop');
     updateButtonState('processing');
     statusText.textContent = "Processing...";
     chrome.runtime.sendMessage({ type: "STOP_RECORDING" });
@@ -340,19 +285,7 @@ chrome.runtime.onMessage.addListener((message) => {
         }
 
         if (message.text) {
-            navigator.clipboard.writeText(message.text)
-                .then(() => {
-                    playSound('copy');
-                    logToUI("Auto-copied to clipboard.", "#28cd41");
-                    chrome.storage.local.get({ closeDelay: 2 }, (items) => {
-                        const delayMs = items.closeDelay * 1000;
-                        if (delayMs === 0) window.close();
-                        else {
-                            if (closeTimer) clearTimeout(closeTimer);
-                            closeTimer = setTimeout(() => { window.close(); }, delayMs);
-                        }
-                    });
-                });
+            logToUI("Transcription finished and auto-copied.", "#28cd41");
         }
         updateButtonState('idle');
     }
@@ -367,7 +300,7 @@ toggleDebugBtn.onclick = () => {
 copyLogsBtn.onclick = () => {
     const logText = debugLog.innerText;
     navigator.clipboard.writeText(logText).then(() => {
-        playSound('copy');
+        chrome.runtime.sendMessage({ type: "PLAY_SOUND_GLOBAL", soundType: "copy" }).catch(() => {});
         copyLogsBtn.classList.add('copied');
         setTimeout(() => {
             copyLogsBtn.classList.remove('copied');

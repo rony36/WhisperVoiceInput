@@ -22,16 +22,57 @@ const MAX_LOGS = 100;
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name === "popup") {
     port.onDisconnect.addListener(() => {
-      console.log("Popup closed, checking if need to stop recording...");
-      if (isRecording) {
-        isRecording = false;
-        handleStopRecording(() => {});
-      }
+      console.log("Popup closed.");
     });
   }
 });
 
+chrome.commands.onCommand.addListener((command) => {
+  if (command === "toggle-recording") {
+    if (isRecording) {
+      isRecording = false;
+      handleStopRecording();
+    } else {
+      isRecording = true;
+      logHistory = [];
+      handleStartRecording();
+    }
+  }
+});
+
+function showNotification(title, message) {
+  const notificationId = `whisper-${Date.now()}`;
+  chrome.notifications.create(notificationId, {
+    type: 'basic',
+    iconUrl: '/assets/icons/icon128.png',
+    title: title,
+    message: message,
+    priority: 2
+  });
+
+  // Auto-clear notification after 5 seconds to prevent tray clutter
+  setTimeout(() => {
+    chrome.notifications.clear(notificationId);
+  }, 5000);
+}
+
+async function triggerSound(type) {
+  const { enableSounds } = await chrome.storage.local.get({ enableSounds: true });
+  if (!enableSounds) return;
+
+  chrome.runtime.sendMessage({
+    type: "PLAY_SOUND",
+    target: "offscreen",
+    soundType: type
+  }).catch(() => {});
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === "PLAY_SOUND_GLOBAL") {
+    triggerSound(message.soundType);
+    return false;
+  }
+
   if (message.type === "GET_STATUS") {
     sendResponse({ isRecording });
     return;
@@ -68,6 +109,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (transcriptionHistory.length > 3) {
         transcriptionHistory.pop();
       }
+      showNotification("Transcription Complete", message.text);
+      triggerSound('copy');
+    } else {
+      showNotification("Transcription", message.status || "Finished with no text.");
     }
     // Broadcast result and updated history to all active extension pages (e.g., popup)
     chrome.runtime.sendMessage({ 
@@ -88,6 +133,7 @@ async function handleStartRecording(sendResponse) {
 
     console.log("Starting recording with settings:", settings);
     await setupOffscreen("src/offscreen.html");
+    triggerSound('start');
     chrome.runtime.sendMessage({ 
       type: "START_RECORDING", 
       target: "offscreen",
@@ -101,6 +147,7 @@ async function handleStartRecording(sendResponse) {
 }
 
 async function handleStopRecording(sendResponse) {
+  triggerSound('stop');
   chrome.runtime.sendMessage({ 
     type: "STOP_RECORDING", 
     target: "offscreen"
