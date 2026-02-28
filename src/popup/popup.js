@@ -210,7 +210,7 @@ recordBtn.addEventListener('click', () => {
 });
 
 window.addEventListener('keydown', (e) => {
-    if (e.code === 'Space' || (e.altKey && e.key.toLowerCase() === 'v')) {
+    if (e.altKey && e.key.toLowerCase() === 'b') {
         if (isRecording) {
             e.preventDefault();
             stopRecording();

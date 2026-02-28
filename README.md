@@ -10,9 +10,8 @@ A privacy-focused, high-performance local AI voice input tool running entirely i
 - **Multi-Model Support**: Supports a wide range of models from Base to Large-v3-Turbo, including the latest **Distil-Large-v3.5**.
 - **Traditional Chinese Optimization**: Built-in OpenCC conversion ensures accurate Traditional Chinese output.
 - **Efficient Workflow**:
-  - `Alt + B`: Start or stop recording in the background.
-  - `Space`: Press Space while recording in the popup to stop and begin transcription immediately.
-  - **Auto-Copy**: Text is automatically copied to your clipboard once transcription is complete.
+  - `Alt + B`: Toggle recording (Start/Stop) in the background. (To use this outside of Chrome, set the shortcut to "Global" in `chrome://extensions/shortcuts`)
+  - **Auto-Copy**: Transcribed text is automatically copied to your clipboard once transcription is complete.
 
 ## 🛠 Tech Stack
 

@@ -44,7 +44,8 @@
         "default": "Alt+B",
         "mac": "Command+Shift+B"
       },
-      "description": "Start/Stop recording in the background"
+      "description": "Start/Stop recording",
+      "global": true
     }
   }
 }

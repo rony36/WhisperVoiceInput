@@ -4,13 +4,12 @@ console.log("Options JS script starting...");
 const saveOptions = () => {
   const model = document.getElementById('model').value;
   const language = document.getElementById('language').value;
-  const closeDelay = parseInt(document.getElementById('closeDelay').value, 10);
   const enableSounds = document.getElementById('enableSounds').checked;
 
-  console.log("Saving options to storage:", { model, language, closeDelay, enableSounds });
+  console.log("Saving options to storage:", { model, language, enableSounds });
   
   chrome.storage.local.set(
-    { model, language, closeDelay, enableSounds },
+    { model, language, enableSounds },
     () => {
       console.log("Storage save callback fired.");
       // Update status to let user know options were saved.
@@ -28,7 +27,7 @@ const saveOptions = () => {
 const restoreOptions = () => {
   console.log("Restoring options from storage...");
   chrome.storage.local.get(
-    { model: 'onnx-community/whisper-large-v3-turbo', language: 'en', closeDelay: 2, enableSounds: true },
+    { model: 'onnx-community/whisper-large-v3-turbo', language: 'en', enableSounds: true },
     (items) => {
       console.log("Loaded items:", items);
       // Fallback for old 'zh' value if it exists
@@ -37,7 +36,6 @@ const restoreOptions = () => {
       
       document.getElementById('model').value = items.model;
       document.getElementById('language').value = lang;
-      document.getElementById('closeDelay').value = items.closeDelay;
       document.getElementById('enableSounds').checked = items.enableSounds;
     }
   );
@@ -171,13 +169,9 @@ document.addEventListener('DOMContentLoaded', () => {
   updateCacheList();
 
   // Attach auto-save listeners to all configuration fields
-  ['model', 'language', 'closeDelay', 'enableSounds'].forEach(id => {
+  ['model', 'language', 'enableSounds'].forEach(id => {
     const el = document.getElementById(id);
     el.addEventListener('change', saveOptions);
-    // For numeric inputs, listen for immediate changes via the input event
-    if (id === 'closeDelay') {
-        el.addEventListener('input', saveOptions);
-    }
   });
 });
 
