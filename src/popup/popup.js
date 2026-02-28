@@ -160,7 +160,9 @@ Promise.all([
     new Promise(resolve => chrome.runtime.sendMessage({ type: "GET_UI_STATE" }, resolve)),
     chrome.storage.local.get({ language: 'en' })
 ]).then(([statusResponse, modelResponse, uiState, storage]) => {
-    langSelect.value = storage.language || 'en';
+    let lang = storage.language || 'en';
+    if (lang === 'zh') lang = 'zh-tw';
+    langSelect.value = lang;
     if (statusResponse && statusResponse.isRecording) {
         updateButtonState('recording');
         statusText.textContent = "Recording...";

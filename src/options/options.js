@@ -30,8 +30,12 @@ const restoreOptions = () => {
     { model: 'onnx-community/whisper-large-v3-turbo', language: 'en', closeDelay: 2 },
     (items) => {
       console.log("Loaded items:", items);
+      // Fallback for old 'zh' value if it exists
+      let lang = items.language;
+      if (lang === 'zh') lang = 'zh-tw';
+      
       document.getElementById('model').value = items.model;
-      document.getElementById('language').value = items.language;
+      document.getElementById('language').value = lang;
       document.getElementById('closeDelay').value = items.closeDelay;
     }
   );

@@ -15,16 +15,20 @@ env.backends.onnx.wasm.wasmPaths = {
     'ort-wasm-simd-threaded.mjs': wasmBase + 'ort-wasm-simd-threaded.mjs',
 };
 
+const converters = {
+    'zh-tw': OpenCC.Converter({ from: "cn", to: "tw" }),
+    'zh-cn': OpenCC.Converter({ from: "tw", to: "cn" })
+};
 
-const converter = OpenCC.Converter({ from: "cn", to: "tw" });
 let recorder = null;
 let audioChunks = [];
 let audioContext = null;
 let stream = null;
 
-const maybeConvert = (text) => {
+const maybeConvert = (text, targetLang) => {
     if (text && /[\u4e00-\u9fa5]/.test(text)) {
-        return converter(text);
+        const converter = converters[targetLang];
+        if (converter) return converter(text);
     }
     return text;
 };
@@ -361,15 +365,23 @@ async function stopRecording(settings, sendResponse) {
             const modelCfg = MODELS_CONFIG[p.modelId] || { inference: {} };
             const inferenceSettings = modelCfg.inference || {};
             
+            // Map our internal language codes to Whisper's codes
+            let whisperLanguage = settings.language;
+            if (whisperLanguage === "zh-tw" || whisperLanguage === "zh-cn") {
+                whisperLanguage = "chinese";
+            } else if (whisperLanguage === "auto") {
+                whisperLanguage = null;
+            }
+
             const output = await p(audioData, {
-                language: settings.language === "auto" ? null : settings.language,
+                language: whisperLanguage,
                 task: "transcribe",
                 ...inferenceSettings
             });
             const inferEnd = performance.now();
             
             const totalEnd = performance.now();
-            const transcribedText = maybeConvert(output.text);
+            const transcribedText = maybeConvert(output.text, settings.language);
             
             logDebug(`[Perf] Core Inference: ${Math.round(inferEnd - inferStart)}ms`, "#4ec9b0");
             logDebug(`[Perf] TOTAL TIME: ${Math.round(totalEnd - totalStart)}ms`, "#4ec9b0");
