@@ -343,7 +343,7 @@ async function stopRecording(settings, sendResponse) {
             if (audioData.length === 0) {
                 logDebug("No speech detected.");
                 chrome.runtime.sendMessage({ 
-                    type: "TRANSCRIPTION_RESULT", 
+                    type: "OFFSCREEN_TRANSCRIPTION_RESULT", 
                     text: "",
                     status: "No speech detected" 
                 }).catch(() => {});
@@ -389,7 +389,7 @@ async function stopRecording(settings, sendResponse) {
 
             // Push final transcription result to the popup via runtime message
             chrome.runtime.sendMessage({ 
-                type: "TRANSCRIPTION_RESULT", 
+                type: "OFFSCREEN_TRANSCRIPTION_RESULT", 
                 text: transcribedText 
             }).catch(() => {});
 

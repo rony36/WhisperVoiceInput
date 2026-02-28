@@ -62,14 +62,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  if (message.type === "TRANSCRIPTION_RESULT") {
+  if (message.type === "OFFSCREEN_TRANSCRIPTION_RESULT") {
     if (message.text) {
       transcriptionHistory.unshift(message.text);
       if (transcriptionHistory.length > 3) {
         transcriptionHistory.pop();
       }
     }
-    // Broadcast result and updated history to all active extension pages
+    // Broadcast result and updated history to all active extension pages (e.g., popup)
     chrome.runtime.sendMessage({ 
         type: "TRANSCRIPTION_RESULT", 
         text: message.text,
