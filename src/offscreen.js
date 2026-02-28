@@ -7,7 +7,14 @@ env.allowRemoteModels = true;
 env.useBrowserCache = true; // 開啟瀏覽器快取，這是加速關鍵
 
 // Point to local assets for ONNX Runtime
-env.backends.onnx.wasm.wasmPaths = chrome.runtime.getURL('assets/transformers/');
+const wasmBase = chrome.runtime.getURL('assets/transformers/');
+env.backends.onnx.wasm.wasmPaths = {
+    'ort-wasm-simd-threaded.jsep.wasm': wasmBase + 'ort-wasm-simd-threaded.jsep.wasm',
+    'ort-wasm-simd-threaded.wasm': wasmBase + 'ort-wasm-simd-threaded.wasm',
+    'ort-wasm-simd-threaded.jsep.mjs': wasmBase + 'ort-wasm-simd-threaded.jsep.mjs',
+    'ort-wasm-simd-threaded.mjs': wasmBase + 'ort-wasm-simd-threaded.mjs',
+};
+
 
 const converter = OpenCC.Converter({ from: "cn", to: "tw" });
 let recorder = null;
@@ -99,11 +106,11 @@ const MODELS_CONFIG = {
         inference: {
             chunk_length_s: 30,
             stride_length_s: 5,
-            max_new_tokens: 1024,
-            batch_size: 4,
+            max_new_tokens: 448, // 通常不需要 1024
+            batch_size: 1, // 降低 Batch Size
             num_beams: 1,
-            repetition_penalty: 1.1,
-	    return_timestamps: false,
+            repetition_penalty: 1.0, // Turbo 模型對此較不敏感
+            return_timestamps: false,
             no_repeat_ngram_size: 3
         }
     },
