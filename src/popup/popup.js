@@ -226,7 +226,16 @@ function startRecording() {
         if (response && response.success) statusText.textContent = "Recording...";
         else {
             updateButtonState('idle');
-            statusText.textContent = "Error: " + (response?.error || "Unknown");
+            const error = response?.error || "Unknown error";
+            if (error.includes('Permission') || error.includes('NotAllowedError') || error.includes('denied')) {
+                statusText.innerHTML = `Microphone access denied.<br/><a href="#" id="fixPermission" style="color: #0071e3; text-decoration: underline; font-weight: bold;">Click here to fix in Settings</a>`;
+                document.getElementById('fixPermission').onclick = (e) => {
+                    e.preventDefault();
+                    chrome.runtime.openOptionsPage();
+                };
+            } else {
+                statusText.textContent = "Error: " + error;
+            }
         }
     });
 }

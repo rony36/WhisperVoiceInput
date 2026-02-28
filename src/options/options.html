@@ -217,6 +217,15 @@
 </head>
 <body>
     <div class="container">
+        <div id="micWarning" class="option-group" style="display: none; background: #fff0f0; border: 1px solid #ffccc7; padding: 20px; border-radius: 16px; margin-bottom: 24px;">
+            <label style="color: #cf1322; margin-bottom: 8px;">⚠️ Microphone Access Required</label>
+            <div style="font-size: 14px; color: #5c0011; margin-bottom: 16px; line-height: 1.6;">
+                This extension needs microphone access to record and transcribe your voice. 
+                Please click the button below and allow access when prompted.
+            </div>
+            <button id="grantMic" style="background: var(--danger-color); width: 100%;">Grant Microphone Permission</button>
+        </div>
+
         <h1>Settings</h1>
 
         <div class="option-group instruction-box">
@@ -263,12 +272,6 @@
             <div class="hint">Time to wait before closing the popup after transcription.</div>
         </div>
 
-        <div class="option-group">
-            <label>Microphone Access</label>
-            <div id="micStatus" style="font-size: 14px; margin-bottom: 12px; font-weight: 500;">Status: Checking...</div>
-            <button id="grantMic">Grant Permission</button>
-            <div class="hint">Required for capturing audio from your microphone.</div>
-        </div>
 
         <div class="option-group">
             <label>Local Model Cache</label>

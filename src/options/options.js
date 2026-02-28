@@ -125,22 +125,25 @@ const deleteModelCache = async (modelId) => {
 
 // Check and grant microphone permission
 const checkMicPermission = async () => {
-  const micStatus = document.getElementById('micStatus');
+  const micWarning = document.getElementById('micWarning');
   try {
     const result = await navigator.permissions.query({ name: 'microphone' });
     console.log("Current mic permission state:", result.state);
+    
     if (result.state === 'granted') {
-      micStatus.textContent = 'Status: ✅ Permission Granted';
-      micStatus.style.color = '#28cd41';
-      document.getElementById('grantMic').style.display = 'none';
+      micWarning.style.display = 'none';
     } else {
-      micStatus.textContent = 'Status: ❌ Permission Not Granted';
-      micStatus.style.color = '#ff3b30';
-      document.getElementById('grantMic').style.display = 'block';
+      micWarning.style.display = 'block';
     }
+    
+    // Auto-update if user changes it in site settings
+    result.onchange = () => {
+        checkMicPermission();
+    };
   } catch (err) {
     console.error("Mic permission check error:", err);
-    micStatus.textContent = 'Status: Unknown';
+    // If query fails, it's safer to show the warning if we can't confirm it's granted
+    micWarning.style.display = 'block';
   }
 };
 
