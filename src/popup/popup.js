@@ -53,7 +53,7 @@ function drawWaveform() {
         const y = Math.round((waveformCanvas.height - h) / 2);
         
         if (isRecording) ctx.fillStyle = '#28cd41';
-        else if (isProcessing) ctx.fillStyle = '#0071e3';
+        else if (isProcessing) ctx.fillStyle = '#007aff';
         else ctx.fillStyle = '#ddd';
         
         ctx.beginPath();
@@ -110,7 +110,7 @@ function updateButtonState(state) {
             recordBtn.disabled = false;
             recordBtn.textContent = "STOP";
             recordBtn.classList.add("recording");
-            recordBtn.style.background = "linear-gradient(135deg, #34e150, #28cd41)";
+            recordBtn.style.background = "linear-gradient(135deg, #32d74b, #28cd41)";
             recordBtn.style.boxShadow = "0 6px 20px rgba(40,205,65,0.4)";
             break;
         case 'processing':
@@ -118,8 +118,8 @@ function updateButtonState(state) {
             recordBtn.textContent = "WORKING...";
             recordBtn.classList.add("working");
             // Set styles immediately and synchronously
-            recordBtn.style.background = "linear-gradient(135deg, #0082ff, #0071e3)";
-            recordBtn.style.boxShadow = "0 6px 20px rgba(0,113,227,0.4)";
+            recordBtn.style.background = "linear-gradient(135deg, #0a84ff, #007aff)";
+            recordBtn.style.boxShadow = "0 6px 20px rgba(0, 122, 255, 0.4)";
             currentVolume = 0;
             break;
     }
@@ -133,7 +133,7 @@ function logToUI(msg, color = "#d4d4d4", timeStr = null) {
     const logItem = document.createElement('div');
     logItem.style.marginBottom = "2px";
     logItem.style.color = color;
-    logItem.innerHTML = `<span style="color: #569cd6">[${time}]</span> ${msg}`;
+    logItem.innerHTML = `<span style="color: #007aff">[${time}]</span> ${msg}`;
     debugLog.appendChild(logItem);
     debugLog.scrollTop = debugLog.scrollHeight;
 }
@@ -228,8 +228,8 @@ function startRecording() {
         latestItem.style.color = "#666";
         latestItem.style.fontSize = "13px";
         latestItem.style.paddingLeft = "16px";
-        // Hide the blue indicator bar by modifying the CSS variable
-        latestItem.style.setProperty('--pseudo-width', '0'); 
+        // Hide the blue indicator bar (remove the class that has the ::before)
+        latestItem.classList.add('faded');
     }
 
     updateButtonState('recording');
@@ -244,7 +244,7 @@ function startRecording() {
             updateButtonState('idle');
             const error = response?.error || "Unknown error";
             if (error.includes('Permission') || error.includes('NotAllowedError') || error.includes('denied')) {
-                statusText.innerHTML = `Microphone access denied.<br/><a href="#" id="fixPermission" style="color: #0071e3; text-decoration: underline; font-weight: bold;">Click here to fix in Settings</a>`;
+                statusText.innerHTML = `Microphone access denied.<br/><a href="#" id="fixPermission" style="color: #007aff; text-decoration: underline; font-weight: bold;">Click here to fix in Settings</a>`;
                 document.getElementById('fixPermission').onclick = (e) => {
                     e.preventDefault();
                     chrome.runtime.openOptionsPage();
@@ -295,7 +295,7 @@ chrome.runtime.onMessage.addListener((message) => {
         if (message.text) {
             navigator.clipboard.writeText(message.text)
                 .then(() => {
-                    logToUI("Auto-copied to clipboard.", "#4ec9b0");
+                    logToUI("Auto-copied to clipboard.", "#28cd41");
                     chrome.storage.local.get({ closeDelay: 2 }, (items) => {
                         const delayMs = items.closeDelay * 1000;
                         if (delayMs === 0) window.close();
