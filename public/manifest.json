@@ -41,8 +41,8 @@
   "commands": {
     "toggle-recording": {
       "suggested_key": {
-        "default": "Alt+V",
-        "mac": "Command+Shift+V"
+        "default": "Alt+B",
+        "mac": "Command+Shift+B"
       },
       "description": "Start/Stop recording in the background"
     }
