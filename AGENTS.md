@@ -1,4 +1,4 @@
-# Gemini CLI Workspace Instructions
+# AGENTS.md
 
 This file contains foundational mandates for the Gemini CLI agent in this repository.
 
