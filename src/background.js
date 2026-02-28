@@ -16,7 +16,7 @@ async function setupOffscreen(path) {
 
 let isRecording = false;
 let isProcessing = false;
-let transcriptionHistory = []; // Persist only the latest 3 transcription results
+let transcriptionHistory = []; // Persist only the latest 5 transcription results
 let logHistory = [];
 const MAX_LOGS = 100;
 
@@ -152,7 +152,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     isProcessing = false;
     if (message.text) {
       transcriptionHistory.unshift(message.text);
-      if (transcriptionHistory.length > 3) {
+      if (transcriptionHistory.length > 5) {
         transcriptionHistory.pop();
       }
       showNotification("Transcription Complete", message.text);
