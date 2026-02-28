@@ -1,4 +1,4 @@
-# Whisper Voice Input
+# Whisper Voice Input Chrome Extension
 
 A privacy-focused, high-performance local AI voice input tool running entirely in your browser. Powered by Transformers.js and WebGPU acceleration, it provides fast and secure speech-to-text service.
 
