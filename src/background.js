@@ -47,7 +47,7 @@ async function broadcastStatus() {
     isRecording: recording,
     isProcessing
   }).catch(() => {});
-  // updateBadge(recording);
+  updateBadge(recording);
 }
 
 chrome.runtime.onConnect.addListener((port) => {
