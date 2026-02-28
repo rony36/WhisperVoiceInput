@@ -34,13 +34,28 @@ function drawWaveform() {
     }
     const totalContentWidth = bars * (barWidth + barGap) - barGap;
     const startX = (waveformCanvas.width - totalContentWidth) / 2;
+    
+    const time = Date.now() / 1000;
+
     for (let i = 0; i < bars; i++) {
-        const target = isRecording ? (currentVolume * 0.4 * (Math.random() * 0.4 + 0.6) + 3) : 2;
+        let target = 2;
+        if (isRecording) {
+            target = (currentVolume * 0.4 * (Math.random() * 0.4 + 0.6) + 3);
+        } else if (isProcessing) {
+            // Scanning wave effect during processing
+            const wave = Math.sin(time * 5 + i * 0.3) * 0.5 + 0.5;
+            target = 4 + wave * 8;
+        }
+
         barHeights[i] = barHeights[i] * 0.7 + target * 0.3;
         const h = Math.round(barHeights[i]);
         const x = startX + i * (barWidth + barGap);
         const y = Math.round((waveformCanvas.height - h) / 2);
-        ctx.fillStyle = isRecording ? '#28cd41' : '#ddd';
+        
+        if (isRecording) ctx.fillStyle = '#28cd41';
+        else if (isProcessing) ctx.fillStyle = '#0071e3';
+        else ctx.fillStyle = '#ddd';
+        
         ctx.beginPath();
         if (ctx.roundRect) ctx.roundRect(x, y, barWidth, h, 2);
         else ctx.rect(x, y, barWidth, h);
@@ -76,7 +91,7 @@ function updateButtonState(state) {
             recordBtn.disabled = false;
             recordBtn.textContent = "START";
             recordBtn.classList.remove("recording", "working");
-            recordBtn.style.background = "#ff3b30";
+            recordBtn.style.background = "linear-gradient(135deg, #ff5f57, #ff3b30)";
             recordBtn.style.boxShadow = "0 6px 16px rgba(255,59,48,0.3)";
             recordBtn.style.cursor = "pointer";
             recordBtn.style.opacity = "1";
@@ -87,7 +102,7 @@ function updateButtonState(state) {
             recordBtn.textContent = "LOADING...";
             recordBtn.classList.remove("recording");
             recordBtn.classList.add("working");
-            recordBtn.style.background = "#555";
+            recordBtn.style.background = "linear-gradient(135deg, #666, #444)";
             recordBtn.style.boxShadow = "none";
             recordBtn.style.cursor = "not-allowed";
             currentVolume = 0;
@@ -97,19 +112,19 @@ function updateButtonState(state) {
             recordBtn.textContent = "STOP";
             recordBtn.classList.add("recording");
             recordBtn.classList.remove("working");
-            recordBtn.style.background = "#28cd41";
+            recordBtn.style.background = "linear-gradient(135deg, #34e150, #28cd41)";
             recordBtn.style.boxShadow = "0 6px 20px rgba(40,205,65,0.4)";
             recordBtn.style.cursor = "pointer";
             recordBtn.style.opacity = "1";
             break;
         case 'processing':
             isProcessing = true;
-            recordBtn.style.background = "#0071e3";
+            recordBtn.style.background = "linear-gradient(135deg, #0082ff, #0071e3)";
             recordBtn.disabled = true;
-            recordBtn.textContent = "PROCESSING...";
+            recordBtn.textContent = "WORKING...";
             recordBtn.classList.remove("recording");
             recordBtn.classList.add("working");
-            recordBtn.style.boxShadow = "0 4px 12px rgba(0,113,227,0.3)";
+            recordBtn.style.boxShadow = "0 6px 20px rgba(0,113,227,0.4)";
             recordBtn.style.cursor = "not-allowed";
             currentVolume = 0;
             break;
